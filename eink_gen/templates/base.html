@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+    <title>PyBites Banner Generator</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/pure/1.0.0/pure-min.css">
+    <link href="https://fonts.googleapis.com/css?family=Open+Sans" rel="stylesheet">
+    <link rel="stylesheet" type="text/css" href="{{ url_for('static', filename='style.css') }}">
+  </head>
+  <body>
+  <header>
+    <h1>PyBites Banner Generator</h1>
+      <p>
+        {% if session.get('logged_in') %}
+          Hey {{ session['logged_in'] }}, <a href="{{ url_for('logout') }}">logout</a>
+        {% endif%}
+      </p>
+  </header>
+  <main>
+    {% block content %}
+    {% endblock %}
+  </main>
+  <br>
+  <hr>
+  <footer>
+  </footer>
+</body>
+</html>
+

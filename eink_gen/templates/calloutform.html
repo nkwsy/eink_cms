@@ -1,0 +1,16 @@
+
+{% extends "base.html" %}
+{% block content %}
+
+    {% from "_formhelpers.html" import render_field %}
+    <form class="pure-form pure-form-stacked" action="/callout" id="calloutForm" method=post>
+            {{ form.csrf_token }}
+            {{ render_field(form.title) }}
+            {{ render_field(form.sub_text) }}
+            {{ render_field(form.body) }}
+            {{ render_field(form.url) }}
+            {{ render_field(form.image_file) }}
+            {{ render_field(form.only_image) }}
+            <button type=submit class="pure-button pure-button-primary">Generate banner</button>
+    </form>
+{% endblock %}

@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block content %}
+    <form action="/event">
+        <input type="submit" class="pure-button pure-button-primary" value="Add New Event"/>
+    </form>
+    <form action="/activity">
+        <input type="submit" class="pure-button pure-button-primary" value="Add New activity"/>
+    </form>
+    <form action="/callout">
+        <input type="submit" class="pure-button pure-button-primary" value="Add New Callout"/>
+    </form>
+    <form action="/generate">
+        <input type="submit" class="pure-button pure-button-primary" value="Add New Callout"/>
+    </form>
+    <button type="button" class="pure-button pure-button-primary">Generate banner</button>
+    {% from "_formhelpers.html" import render_field %}
+    <form class="pure-form pure-form-stacked" id="imageForm" method=post>
+        <fieldset>
+            {#				{{ render_field(form.name) }}#}
+            {#				{{ render_field(form.image_url1) }}#}
+            {#				{{ render_field(form.image_url2) }}#}
+            {#				{{ render_field(form.text) }}#}
+            {#				{{ render_field(form.background) }}#}
+            <button type=submit class="pure-button pure-button-primary">Generate banner</button>
+        </fieldset>
+    </form>
+
+    <table class="pure-table" id="imageCache">
+        <caption>Events</caption>
+        <thead>
+        <th>Name</th>
+        <th>Archived</th>
+        <th>Archive</th>
+        <th>Delete</th>
+        </thead>
+        <tbody>
+        {#    {% if session.get('logged_in') %}#}
+        {% if events %}
+        {% for event in events %}
+            <tr>
+                <td><a href="{{ url_for('app.event', bannerid=event.id) }}">{{ event.title }}</a></td>
+                <td><a href="{{ url_for('app.event', bannerid=event.id) }}">{{ event.archived }}</a></td>
+                <td><a href="{{ url_for('app.archive_event', bannerid=event.id) }}">Archive</a></td>
+                <td><a href="{{ url_for('app.delete_event', bannerid=event.id) }}">Delete</a></td>
+            </tr>
+        {% endfor %}
+        {% endif %}
+        </tbody>
+    </table>
+
+    <table class="pure-table" id="imageCache">
+        <caption>Activities</caption>
+        <thead>
+        <th>Type</th>
+        <th>Name</th>
+        <th>Active</th>
+        <th>Archive</th>
+        <th>Delete</th>
+        </thead>
+        <tbody>
+        {#    {% if session.get('logged_in') %}#}
+
+        {% for activity in activities %}
+            <tr>
+                <td><a href="{{ url_for('app.activity', bannerid=activity.id) }}">{{ activity.title }}</a></td>
+                <td><a href="{{ url_for('app.activity', bannerid=activity.id) }}">{{ activity.title }}</a></td>
+                <td>{{ activity.active }}</td>
+                <td><a href="{{ url_for('app.archive_event', bannerid=activity.id) }}">Archive</a></td>
+                <td><a href="{{ url_for('app.delete_event', bannerid=activity.id) }}">Delete</a></td>
+
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <table class="pure-table" id="imageCache">
+        <caption>Callouts</caption>
+        <thead>
+        <th>Type</th>
+        <th>Name</th>
+        <th>Active</th>
+        <th>Archive</th>
+        <th>Delete</th>
+        </thead>
+        <tbody>
+        {#    {% if session.get('logged_in') %}#}
+
+        {% for callout in callouts %}
+            <tr>
+                <td><a href="{{ url_for('callout', bannerid=callout.id) }}">{{ callout.name }}</a></td>
+                <td><a href="{{ url_for('callout', bannerid=callout.id) }}">{{ callout.name }}</a></td>
+                <td><a href="{{ url_for('callout', bannerid=callout.id) }}">{{ callout.name }}</a></td>
+                <td><a href="{{ url_for('archive_event', bannerid=callout.id) }}">Archive</a></td>
+                <td><a href="{{ url_for('delete_event', bannerid=callout.id) }}">Delete</a></td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    <a href="static/out.png">Full size image</a>
+    <img src="static/out_thumbnail.png"/>
+
+{% endblock %}

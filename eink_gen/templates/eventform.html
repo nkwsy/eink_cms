@@ -1,0 +1,20 @@
+
+{% extends "base.html" %}
+{% block content %}
+
+{% from "_formhelpers.html" import render_field %}
+<form class="pure-form pure-form-stacked" action="/event" id="eventForm" method=post>
+{#    <fieldset>#}
+        {{ form.csrf_token }}
+        {{ render_field(form.title) }}
+        {{ render_field(form.header_text) }}
+        {{ render_field(form.sub_text) }}
+        {{ render_field(form.date) }}
+        {{ render_field(form.start_time) }}
+        {{ render_field(form.end_time) }}
+        {{ render_field(form.url) }}
+        {{ render_field(form.submit) }}
+{#        <button type=submit class="pure-button pure-button-primary">Generate banner</button>#}
+{#    </fieldset>#}
+</form>
+{% endblock %}

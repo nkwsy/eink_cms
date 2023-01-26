@@ -1,0 +1,9 @@
+*swp
+*pyc
+__pycache__
+eink_gen/banner/images/*
+!eink_gen/banner/images/.gitkeep
+venv
+eink_gen/banners.db
+app.log
+.env

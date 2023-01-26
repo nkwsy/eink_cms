@@ -1,0 +1,47 @@
+body {
+	background-color: #fff;
+	width: 800px;
+	margin: 0 auto;
+	font-family: 'Open Sans', sans-serif;
+}
+form {
+	margin: 20px 0;
+}
+form, table {
+	width: 400px;
+}
+div {
+  padding: 10px 0;
+}
+input, select, textarea {
+  width: 300px;
+}
+textarea {
+	height: 100px;
+}
+button {
+  clear: both; 
+  margin-top: 20px;
+}
+select#image_url1 option[value="article"] { 
+  background-image:url("../banner/assets/pybites/article.png");
+}
+select#image_url1 option[value="challenge"]   { 
+  background-image:url("../banner/assets/pybites/challenge.png");
+}
+select#image_url1 option[value="news"] { 
+  background-image:url("../banner/assets/pybites/news.png");
+}
+select#image_url1 option[value="special"] { 
+  background-image:url("../banner/assets/pybites/special.png");
+}
+#imageForm {
+	float: left;
+}
+#imageCache {
+	float: right;
+	margin-top: 65px; 
+}
+footer {
+	clear: both;
+}
