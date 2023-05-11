@@ -31,6 +31,7 @@ class EventForm(FlaskForm):
     end_time = TimeField('End Time', default=None)
     url = URLField('URL')
     submit = SubmitField('Submit')
+
 class ActivityForm(FlaskForm):
     title = StringField('Title')
     sub_text = TextAreaField('Subtext')
@@ -45,7 +46,7 @@ class CalloutForm(FlaskForm):
     body = StringField('Body')
     url = URLField('URL')
     image_file = FileField('Image File')
-    only_image = BooleanField('Use image as whole box')
+    only_image = SelectField('Use image as whole box',choices=[('True','True'),('False','False')])
 
 
 class ImageForm(Form):

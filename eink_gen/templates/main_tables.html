@@ -9,6 +9,7 @@
                     <th>Archived</th>
                     <th>Archive</th>
                     <th>Delete</th>
+                    <th>Edit</th>
                 </thead>
                 <tbody>
                     {# {% if session.get('logged_in') %}#}
@@ -18,7 +19,9 @@
                         <td><a href="{{ url_for('app.event', bannerid=event.id) }}">{{ event.title }}</a></td>
                         <td><a href="{{ url_for('app.event', bannerid=event.id) }}">{{ event.archived }}</a></td>
                         <td><a href="{{ url_for('app.archive_event', bannerid=event.id) }}">Archive</a></td>
-                        <td><a href="{{ url_for('app.delete_event', bannerid=event.id) }}">Delete</a></td>
+                        <td><a href="{{ url_for('app.delete_event', bannerid=event.id) }}">Delete</a></td>                         <td><a href="{{ url_for('app.event', bannerid=event.id) }}">{{ event.archived }}</a></td>
+                       <td><a href="{{ url_for('app.event', bannerid=event.id) }}">Edit</a></td>
+
                     </tr>
                     {% endfor %}
                     {% endif %}
@@ -34,6 +37,7 @@
                     <th>Active</th>
                     <th>Archive</th>
                     <th>Delete</th>
+                    <th>Edit</th>
                 </thead>
                 <tbody>
                     {# {% if session.get('logged_in') %}#}
@@ -45,6 +49,7 @@
                         <td>{{ activity.active }}</td>
                         <td><a href="{{ url_for('app.archive_event', bannerid=activity.id) }}">Archive</a></td>
                         <td><a href="{{ url_for('app.delete_event', bannerid=activity.id) }}">Delete</a></td>
+                        <td><a href="{{ url_for('app.activity', bannerid=activity.id) }}">Edit</a></td>
 
                     </tr>
                     {% endfor %}
@@ -60,6 +65,7 @@
                     <th>Active</th>
                     <th>Archive</th>
                     <th>Delete</th>
+                    <th>Edit</th>
                 </thead>
                 <tbody>
                     {# {% if session.get('logged_in') %}#}
@@ -67,10 +73,11 @@
                     {% for callout in callouts %}
                     <tr>
                         <td><a href="{{ url_for('callout', bannerid=callout.id) }}">{{ callout.name }}</a></td>
-                        <td><a href="{{ url_for('callout', bannerid=callout.id) }}">{{ callout.name }}</a></td>
+                        <td><a href="{{ url_for('callout', bannerid=callout.id) }}">{{ callout.image_file }}</a></td>
                         <td><a href="{{ url_for('callout', bannerid=callout.id) }}">{{ callout.name }}</a></td>
                         <td><a href="{{ url_for('archive_event', bannerid=callout.id) }}">Archive</a></td>
-                        <td><a href="{{ url_for('delete_event', bannerid=callout.id) }}">Delete</a></td>
+                        <td><a href="{{ url_for('delete_event', bannerid=callout.id) }}">Delete</a></td>                        <td><a href="{{ url_for('callout', bannerid=callout.id) }}">{{ callout.name }}</a></td>
+                        <td><a href="{{ url_for('callout', bannerid=callout.id) }}">Edit</a></td>
                     </tr>
                     {% endfor %}
                 </tbody>

@@ -3,7 +3,7 @@
 {% block content %}
 
     {% from "_formhelpers.html" import render_field %}
-    <form class="pure-form pure-form-stacked" action="/callout" id="calloutForm" method=post>
+    <form class="pure-form pure-form-stacked" action="/callout" id="calloutForm" method=post enctype="multipart/form-data">
             {{ form.csrf_token }}
             {{ render_field(form.title) }}
             {{ render_field(form.sub_text) }}
@@ -16,7 +16,7 @@
     <pre><code>
         Image optimum settings.
         Font HouschkaPro-Bold for heading, HouschkaPro-Medium for subtext.
-        
+
         Format                                   : JPEG
         Width                                    : 1120 pixels
         Height                                   : 704 pixels

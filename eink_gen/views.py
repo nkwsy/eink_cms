@@ -44,7 +44,7 @@ class EventClass:
     url: str = None
     only_image: bool = None
     archived: bool = None
-    image_file = str = None
+    image_file: str = None
 
 
 ImgBanner =  namedtuple('Banner', 'name image1 image2 text background')
@@ -321,7 +321,6 @@ def callout(bannerid=None):
         if bannerid:
             if not bannerid.isdigit():
                 abort(400)
-
             banner = Banner.query.filter_by(id=bannerid).first()
             if not banner:
                 abort(404)
@@ -332,22 +331,26 @@ def callout(bannerid=None):
         sub_text = request.form['sub_text']
         body = request.form['body']
         url = request.form['url']
+        print(f'{request.form}')
+        only_image = request.form['only_image']
         image_file = request.files['image_file']
         if image_file:
-            print(image_file.filename)
-            filename = secure_filename('image_file.filename')
-            image_file.save(filename)
+            f = form.image_file.data
+            filename = secure_filename(f.filename)
+            f.save(os.path.join(os.path.join(basedir, 'banner/assets/images'), filename))
+            f.save(os.path.join(os.path.join(basedir, 'banner/assets/images/archive'), f'callout_{datetime.datetime.now().strftime("%Y%m%d")}_{filename}'))
+            # f.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            # image_file.save(filename)
         else:
             filename = None
         # form.image_file.data.save('uploads/' + filename)
-        only_image = request.form['only_image']
         callout = EventClass(category=category,
                       title=title,
                       sub_text=sub_text,
                       body=body,
                       url= url,
-                      image_file = image_file,
-                      only_image = filename,
+                      image_file = filename,
+                      only_image = only_image,
                         archived= False)
 
         # _store_callout(callout)

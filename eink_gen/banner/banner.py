@@ -520,7 +520,7 @@ class Banner:
         
         self.image.save(self.output_file)
         self.image.save(self.newest_output_file, format='JPEG', **jpeg_params)
-        self.image.thumbnail((854,480))
+        self.image.thumbnail((427,240))
         self.image.save(self.output_thumbnail)
 
 
