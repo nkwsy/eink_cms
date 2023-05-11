@@ -9,7 +9,7 @@ from dateutil import parser
 from flask import abort, render_template, flash, redirect, Blueprint
 from flask import request, session, url_for
 from werkzeug.utils import secure_filename
-from eink_gen.forms import ImageForm, get_logos, ActivityForm, CalloutForm, EventForm
+from eink_gen.forms import ImageForm, get_logos, ActivityForm, CalloutForm, EventForm, UploadForm
 from eink_gen.model import db, Banner, CellData
 
 from eink_gen.banner.banner import generate_banner
@@ -125,12 +125,19 @@ def _store_callout(data):
         callout.date = data.date
         callout.title = data.title
         callout.sub_text = data.sub_text
-        activity.url = data.url
+        callout.url = data.url
+        callout.image_file = data.image_file
+        callout.only_image = data.only_image
+
     else:
-        activity = CellData(data)
-        db.session.add(activity)
+        callout = CellData(data)
+        db.session.add(callout)
     db.session.commit()
 
+def _store_upload(data):
+    ul = CellData(data)
+    db.session.add(ul)
+    db.session.commit()
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     user = None
@@ -352,8 +359,7 @@ def callout(bannerid=None):
                       image_file = filename,
                       only_image = only_image,
                         archived= False)
-
-        # _store_callout(callout)
+        _store_callout(callout)
 
         return redirect(url_for('app.index'))
         # try:
@@ -363,7 +369,47 @@ def callout(bannerid=None):
         #     abort(400)
 
     return render_template('calloutform.html', form=form)
-# @app.route('/', methods=['GET'])
+
+@app.route('/upload',methods=['GET', 'POST'])
+def upload():
+    form = UploadForm()
+    # if request.method == 'GET':
+        #TODO: get all old signs and display them. Allow user to choose to use an old one
+        # banner = Banner.query.filter_by(category=)
+        # if not banner:
+        #     abort(404)
+
+    # elif request.method == 'POST':
+    if request.method == 'POST':
+        category = 'upload'
+        image_file = request.files['image_file']
+        if image_file:
+            f = form.image_file.data
+            filename = secure_filename(f.filename)
+            f.save(os.path.join(os.path.join(basedir, 'static/'), 'out.jpg'))
+            f.save(os.path.join(os.path.join(basedir, 'banner/assets/images/archive/displays'), f'out_{datetime.datetime.now().strftime("%Y%m%d")}_{filename}'))
+            # f.save(os.path.join(app.config['UPLOAD_FOLDER'], filename))
+            # image_file.save(filename)
+        else:
+            filename = None
+        # form.image_file.data.save('uploads/' + filename)
+        upload = EventClass(category=category,
+                      image_file = filename,
+                        archived= False)
+
+        _store_upload(upload)
+
+        return redirect(url_for('app.index'))
+        # try:
+        #     outfile = generate_banner(callout)
+        # except Exception as exc:
+        #     logger.error('Error generating banner, exc: {}'.format(exc))
+        #     abort(400)
+
+    return render_template('uploadform.html', form=form) 
+
+# Store banner / generate
+@app.route('/', methods=['GET'])
 @app.route('/generate')
 def gen_img():
     make_sign()

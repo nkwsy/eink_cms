@@ -48,6 +48,9 @@ class CalloutForm(FlaskForm):
     image_file = FileField('Image File')
     only_image = SelectField('Use image as whole box',choices=[('True','True'),('False','False')])
 
+class UploadForm(FlaskForm):
+    image_file = FileField('Image File', validators=[FileRequired()])
+    submit = SubmitField('Submit')
 
 class ImageForm(Form):
     name = StringField('Banner Name', [

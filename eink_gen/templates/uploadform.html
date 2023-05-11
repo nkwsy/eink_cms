@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% block content %}
+
+    {% from "_formhelpers.html" import render_field %}
+    <form class="pure-form pure-form-stacked" action="/upload" id="uploadForm" method=post enctype="multipart/form-data">
+            {{ form.csrf_token }}
+            {{ render_field(form.image_file) }}
+            <button type=submit class="pure-button pure-button-primary">Upload</button>
+    </form>
+    <pre><code>
+        Image optimum settings.
+        Image
+        Format                                   : JPEG
+        Width                                    : 2 560 pixels
+        Height                                   : 1 440 pixels
+        Color space                              : Y
+        Bit depth                                : 8 bits
+    </code></pre>
+{% endblock %}
