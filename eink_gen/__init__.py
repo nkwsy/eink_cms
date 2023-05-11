@@ -1,4 +1,6 @@
 import os
+from loguru import logger
+logger.add("app.log", rotation="10 MB") 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 
@@ -10,7 +12,7 @@ def create_app():
                                             'sqlite:///' + os.path.join(basedir, 'banners.db')
 
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True  # mute warnings
-
+    app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER') or os.path.join(basedir, 'uploads')
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
     from eink_gen.model import db
     db.init_app(app)

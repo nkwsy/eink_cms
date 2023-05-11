@@ -3,7 +3,7 @@
 {% block content %}
 
     {% from "_formhelpers.html" import render_field %}
-    <form class="pure-form pure-form-stacked" action="/callout" id="calloutForm" method=post>
+    <form class="pure-form pure-form-stacked" action="/callout" id="calloutForm" method=post enctype="multipart/form-data">
             {{ form.csrf_token }}
             {{ render_field(form.title) }}
             {{ render_field(form.sub_text) }}
@@ -13,4 +13,15 @@
             {{ render_field(form.only_image) }}
             <button type=submit class="pure-button pure-button-primary">Generate banner</button>
     </form>
+    <pre><code>
+        Image optimum settings.
+        Font HouschkaPro-Bold for heading, HouschkaPro-Medium for subtext.
+
+        Format                                   : JPEG
+        Width                                    : 1120 pixels
+        Height                                   : 704 pixels
+        Color space                              : YUV
+        Chroma subsampling                       : 4:4:4
+        Bit depth                                : 8 bits
+    </code></pre>
 {% endblock %}
