@@ -1,7 +1,8 @@
 *swp
 *pyc
 __pycache__
-eink_gen/banner/images/*
+eink_gen.egg-info
+eink_gen/banner/images/archive/*
 !eink_gen/banner/images/.gitkeep
 venv
 eink_gen/banners.db
