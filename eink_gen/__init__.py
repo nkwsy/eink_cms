@@ -3,11 +3,16 @@ from loguru import logger
 logger.add("app.log", rotation="10 MB") 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+from dotenv import load_dotenv
+load_dotenv() 
+
 
 basedir = os.path.abspath(os.path.dirname(__file__))
 def create_app():
     app = Flask(__name__)
     print(basedir)
+    print(os.getenv('HOST'))
+    print(os.environ.get('PORT'))
     app.config['SQLALCHEMY_DATABASE_URI'] = os.getenv('DATABASE_URL') or \
                                             'sqlite:///' + os.path.join(basedir, 'banners.db')
 
