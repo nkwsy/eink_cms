@@ -1,12 +1,12 @@
-<div class="col-lg-4">
+<div class="col-lg-8">
     <div class="container">
         <!-- <div class="table-responsive"> -->
             <!-- Events table -->
-            <table class="table table-striped table-bordered" id="imageCache">
-                <caption>Events</caption>
+            <table class="table table-striped table-bordered" id="eventsTable">
+                <label for="eventsTable" class="h3">Events</label>
                 <thead>
                     <th>Name</th>
-                    <th>Archived</th>
+                    <th>Active</th>
                     <th>Archive</th>
                     <th>Delete</th>
                     <th>Edit</th>
@@ -29,8 +29,8 @@
             </table>
             <!-- Activities table -->
 
-            <table class="table table-striped table-bordered" id="imageCache">
-                <h2>Activities</h2>
+            <table class="table table-striped table-bordered" id="activitiesTable">
+                <label for="activitiesTable" class="h3">Activities</label>
                 <thead>
                     <th>Type</th>
                     <th>Name</th>
@@ -46,7 +46,7 @@
                     <tr>
                         <td><a href="{{ url_for('app.activity', bannerid=activity.id) }}">{{ activity.title }}</a></td>
                         <td><a href="{{ url_for('app.activity', bannerid=activity.id) }}">{{ activity.title }}</a></td>
-                        <td>{{ activity.active }}</td>
+                        <td>{{ activity.archived }}</td>
                         <td><a href="{{ url_for('app.archive_event', bannerid=activity.id) }}">Archive</a></td>
                         <td><a href="{{ url_for('app.delete_event', bannerid=activity.id) }}">Delete</a></td>
                         <td><a href="{{ url_for('app.activity', bannerid=activity.id) }}">Edit</a></td>
@@ -57,11 +57,11 @@
             </table>
             <!-- Callouts table -->
 
-            <table class="table table-striped" id="imageCache">
-                <caption>Callouts</caption>
+            <table class="table table-striped" id="calloutsTable">
+                <label for="calloutsTable" class="h3">Callouts</h3>
                 <thead>
                     <th>Type</th>
-                    <th>Name</th>
+                    <th>image</th>
                     <th>Active</th>
                     <th>Archive</th>
                     <th>Delete</th>
@@ -74,7 +74,6 @@
                     <tr>
                         <td><a href="{{ url_for('callout', bannerid=callout.id) }}">{{ callout.name }}</a></td>
                         <td><a href="{{ url_for('callout', bannerid=callout.id) }}">{{ callout.image_file }}</a></td>
-                        <td><a href="{{ url_for('callout', bannerid=callout.id) }}">{{ callout.name }}</a></td>
                         <td><a href="{{ url_for('archive_event', bannerid=callout.id) }}">Archive</a></td>
                         <td><a href="{{ url_for('delete_event', bannerid=callout.id) }}">Delete</a></td>                        <td><a href="{{ url_for('callout', bannerid=callout.id) }}">{{ callout.name }}</a></td>
                         <td><a href="{{ url_for('callout', bannerid=callout.id) }}">Edit</a></td>
