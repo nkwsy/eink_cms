@@ -409,7 +409,7 @@ def upload():
     return render_template('uploadform.html', form=form) 
 
 # Store banner / generate
-@app.route('/', methods=['GET'])
+# @app.route('/', methods=['GET'])
 @app.route('/generate')
 def gen_img():
     make_sign()
