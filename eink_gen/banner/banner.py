@@ -12,7 +12,16 @@ from dataclasses import dataclass
 # 18.94
 # 160
 
-
+"""
+JPEG settings
+"""
+jpeg_quality = 95
+jpeg_optimize = True
+dpi = (2560,1440)
+jpeg_params = {'quality':jpeg_quality,'optimize':jpeg_optimize}
+"""
+Box settings
+"""
 
 box_1 = {'loc':1,'x':6,'y':9,'boarders':{'bottom':10,'right':14}}
 box_2 = {'loc':2,'x':12,'y':9,'boarders':{'left':14,'right':14,'bottom':10}}
@@ -62,7 +71,7 @@ ASSET_DIR = f'{base_folder}assets'
 DEFAULT_WIDTH = 2560
 DEFAULT_HEIGHT = 1440
 DEFAULT_CANVAS_SIZE = (DEFAULT_WIDTH, DEFAULT_HEIGHT)
-DEFAULT_OUTPUT_FILE = 'out.png'
+DEFAULT_OUTPUT_FILE = 'out.jpg'
 RESIZE_PERCENTAGE = 0.8
 DEFAULT_TOP_MARGIN = int(((1 - 0.8) * DEFAULT_HEIGHT) / 2)
 IMAGES = f'{base_folder}assets/images'
@@ -275,7 +284,7 @@ class Banner:
         image = "32Eink_WM_title.jpg"
         self.add_image(get_image(image), box=welcome)
     def add_callout(self):
-        image = "32Eink_urbs.jpg"
+        image = "32Eink_lightfoot.jpg"
         self.add_image(get_image(image), box=facts)
     def add_water_data(self):
         image = "32Eink_water_data.jpg"
@@ -507,8 +516,10 @@ class Banner:
             draw.line(line_cord,fill=WHITE,width=width)
 
     def save_image(self):
+        test = self.image.convert('L', dither=Image.NONE)
+        
         self.image.save(self.output_file)
-        self.image.save(self.newest_output_file)
+        self.image.save(self.newest_output_file, format='JPEG', **jpeg_params)
         self.image.thumbnail((854,480))
         self.image.save(self.output_thumbnail)
 

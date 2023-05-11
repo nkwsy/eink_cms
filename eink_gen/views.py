@@ -1,7 +1,7 @@
 import datetime
 from collections import namedtuple
 from functools import wraps
-import logging
+# from loguru import logging
 import os
 from dataclasses import dataclass
 from dateutil import parser
@@ -27,8 +27,7 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 #     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 #     return app
 # create_app()
-logging.basicConfig(filename='../app.log', level=logging.INFO)
-logger = logging.getLogger(__name__)
+# logger = logging.getLogger(__name__)
 
 PYBITES_SUBDIR = 'pybites'
 
@@ -45,6 +44,8 @@ class EventClass:
     url: str = None
     only_image: bool = None
     archived: bool = None
+    image_file = str = None
+
 
 ImgBanner =  namedtuple('Banner', 'name image1 image2 text background')
 Event = namedtuple('Event', 'category header title sub_text date start_time end_time url archived body', defaults=(None,))
@@ -183,7 +184,6 @@ def event(bannerid=None):
 
     elif request.method == 'POST':
         print('post')
-
         category = 'event'
         header = request.form['header_text']
         title = request.form['title']
@@ -332,9 +332,14 @@ def callout(bannerid=None):
         sub_text = request.form['sub_text']
         body = request.form['body']
         url = request.form['url']
-        filename = secure_filename(form.image_file.data.filename)
-        form.image_file.data.save('uploads/' + filename)
-        image_file = request.form['image_file']
+        image_file = request.files['image_file']
+        if image_file:
+            print(image_file.filename)
+            filename = secure_filename('image_file.filename')
+            image_file.save(filename)
+        else:
+            filename = None
+        # form.image_file.data.save('uploads/' + filename)
         only_image = request.form['only_image']
         callout = EventClass(category=category,
                       title=title,
@@ -342,10 +347,10 @@ def callout(bannerid=None):
                       body=body,
                       url= url,
                       image_file = image_file,
-                      only_image = only_image,
+                      only_image = filename,
                         archived= False)
 
-        _store_event(event)
+        # _store_callout(callout)
 
         return redirect(url_for('app.index'))
         # try:

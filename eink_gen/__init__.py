@@ -1,4 +1,6 @@
 import os
+from loguru import logger
+logger.add("app.log", rotation="10 MB") 
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 
