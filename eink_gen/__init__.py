@@ -13,6 +13,8 @@ def create_app():
 
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = True  # mute warnings
     app.config['UPLOAD_FOLDER'] = os.environ.get('UPLOAD_FOLDER') or os.path.join(basedir, 'uploads')
+    app.config['HOST'] = os.environ.get('HOST') or 'http://localhost:5000'
+    app.config['PORT'] = os.environ.get('PORT') or 5000
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
     from eink_gen.model import db
     db.init_app(app)

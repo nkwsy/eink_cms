@@ -12,7 +12,6 @@ MarkupSafe
 olefile==0.44
 qrcode
 Pillow==9.2.0
-psycopg2==2.9.3
 requests
 # requests==2.20.0
 # SQLAlchemy >= 2.5.1
