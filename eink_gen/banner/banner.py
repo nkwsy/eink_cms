@@ -133,6 +133,9 @@ group_params = {
     }
 line
 """
+ACTION_BOX = {'name':'action', 'loc':(0,0), 'size':(9,2.25)}
+EVENT_BOX = {'name':'event', 'loc':(0,0), 'size':(12,2.25)}
+CALLOUT_BOX = {'name':'callout', 'loc':(0,0), 'size':(11,4.5)}
 
 events_group = {'name': 'events_group' ,'x':14,'y':10.25,'quantity':3}
 rules = {'name':'rules', 'loc':(0,0),'size':(6,9)}
@@ -157,7 +160,7 @@ events = [event_title,event_1,event_2,event_3]
 events_items = [event_1,event_2,event_3]
 action = [action_title,action_1,action_2,action_3]
 activity_items = [action_1,action_2,action_3]
-all_boxes = [data_box,rules,welcome,facts, get_involved, callout,event_title,event_1,event_2,event_3,action_title,action_1,action_2,action_3]
+all_boxes = [ACTION_BOX,EVENT_BOX,CALLOUT_BOX, data_box,rules,welcome,facts, get_involved, callout,event_title,event_1,event_2,event_3,action_title,action_1,action_2,action_3]
 
 date_center_margin = 70
 time_left_margin = 140
@@ -240,9 +243,7 @@ class Banner:
         # if only 1 image use the extra space for text
         single_image = len(self.image_coords) == 1
         text_width = CHARS_PER_LINE * 1.4 if single_image else CHARS_PER_LINE
-
         lines = textwrap.wrap(font.text, width=text_width)
-
         if font.offset:
             x_text, y_text = font.offset
         else:
@@ -260,7 +261,7 @@ class Banner:
             draw.text((x_text, y_text), line, font.color, font=pillow_font)
             y_text += height
     def add_solid_background(self):
-        ImageDraw.rectangle(DEFAULT_CANVAS_SIZE, fill=BLACK, outline=None, width=None)
+        ImageDraw.rectangle(self.size, fill=BLACK, outline=None, width=None)
     def add_background(self, image, resize=False):
         img = Image.open(image).convert('RGBA')
 
@@ -275,7 +276,7 @@ class Banner:
         else:
             self.image.paste(bg_img.resize(DEFAULT_CANVAS_SIZE,
                                            Image.ANTIALIAS), (0, 0))
-
+    """Adds an image to the canvas"""
     def add_park_rules(self):
         image = "32Eink_Rules.jpg"
         get_image(image)
@@ -289,7 +290,6 @@ class Banner:
     def add_water_data(self):
         image = "32Eink_water_data.jpg"
         self.add_image(get_image(image), box=data_box)
-
     def add_get_involved(self):
         image = "32Eink_get_involved_logo.jpg"
         self.add_image(get_image(image), box=get_involved)
@@ -374,10 +374,12 @@ class Banner:
             if return_box:
                 return pillow_font.getbbox(wrapped_text)
             draw.text(position, wrapped_text, font=pillow_font, fill=font.color,  align=font.align)
+            return pillow_font.getbbox(wrapped_text)
         else:
             if return_box:
                 return pillow_font.getbbox(wrapped_text)
             draw.text(position, wrapped_text, font=pillow_font, fill=font.color, anchor=font.anchor)
+            return pillow_font.getbbox(wrapped_text)
         # draw.text(position, wrapped_text, font=pillow_font,  fill=font.color,anchor=font.anchor)
     def add_text_date(self,date,box,start_time=None, end_time=None):
         draw = ImageDraw.Draw(self.image)
@@ -400,12 +402,21 @@ class Banner:
         #             offset=None)
 
         text_box = (box['loc'][0]+60, box['loc'][1]+60)
-        print(text_box)
-
+        print(f'text_box_date: {text_box}, Date: {type(date)}')
         if type(date) == str:
-            datetime.strptime(date)
+            date = datetime.strptime(date, "%Y-%m-%d")
         # %a abbreviated day, %d is 01
-        day = Font(ttf=demiBold_font,text=date.strftime("%a"),color=WHITE, size=font_size(4), offset=None,anchor='mb')
+        def abbreviate_day(date):
+            day_of_week = date.strftime('%A')
+            # Custom mapping for specific cases
+            custom_mapping = {
+                'Tuesday': 'Tues',
+                'Wednesday': 'Wed', 
+                'Thursday': 'Thurs'
+            }
+            abbreviated = custom_mapping.get(day_of_week, day_of_week[:3])
+            return abbreviated
+        day = Font(ttf=demiBold_font,text=abbreviate_day(date),color=WHITE, size=font_size(4), offset=None,anchor='mb')
         day_of_month = Font(ttf=medium_font,text=date.strftime("%-d"),color=WHITE, size=font_size(8), offset=boarder_l,anchor='mb')
         print(f'\n\n{day_of_month}\n')
         month = Font(ttf=medium_font,text=date.strftime("%B"),color=WHITE, size=font_size(2), offset=None,anchor='mt')
@@ -416,27 +427,51 @@ class Banner:
         # draw.text(text_box,day,font=pillow_font, color=WHITE,anchor='mt',align='center')
         print(f'start_time / end_time: {start_time}, {end_time}')
         if end_time is not None:
+            #todo: add variable font size for am/pm.
+            #todo: compute as seperate box in addition to date box
             hour_start = strip_0(start_time.strftime("%I"))
             minute_start = start_time.strftime("%M")
             am_pm_start = start_time.strftime("%p")
-            event_start_time = Font(ttf=demiBold_font,text=f"{hour_start}:{minute_start}{am_pm_start}",color=WHITE, size=font_size(3), offset=None,anchor='lb')
+            event_start_time_n = Font(ttf=demiBold_font,text=f"{hour_start}:{minute_start}{am_pm_start}",color=WHITE, size=font_size(3), offset=None,anchor='lb')
+            event_start_time_p = Font(ttf=demiBold_font,text=f"{am_pm_start}o",color=WHITE, size=font_size(1), offset=None,anchor='lb')
+            event_start_time = event_start_time_n, event_start_time_p
+            print(f'event_start_time: {event_start_time}')
             hour_end = strip_0(end_time.strftime("%I"))
             minute_end = end_time.strftime("%M")
             am_pm_end = end_time.strftime("%p")
             event_end_time = Font(ttf=medium_font,text=f"to {hour_end}:{minute_end}{am_pm_end}",color=WHITE, size=font_size(1), offset=None,anchor='lt')
-            self.draw_text_at_location(event_start_time,box,time_start_center)
+            ts_box = self.draw_text_at_location(event_start_time_n,box,time_start_center)
+            print(f'ts_box: {ts_box}')
             self.draw_text_at_location(event_end_time, box, time_end_center)
         print('fin')
+
     def qr_create(self,url,box):
-        qr = qrcode.QRCode(version=1, box_size=2, border=0,error_correction=qrcode.constants.ERROR_CORRECT_L )
+        qr = qrcode.QRCode(version=1, box_size=7, border=0,error_correction=qrcode.constants.ERROR_CORRECT_L )
         qr.add_data(url)
         qr.make()
         img_qr = qr.make_image(fill_color="black", back_color="white")
-        print(img_qr.size)
+        # Calculate new size considering margin
+        new_size = (int(box['size'][1] *0.7), int(box['size'][1] *0.7))
+        
+        # Resize QR code image
+        img_qr = img_qr.resize(new_size, Image.NEAREST)
+
         center_margin = (box['size'][1] - img_qr.size[1])/2
         qr_location = (int(box['loc'][0]+box['size'][0] - box['size'][1]+center_margin),int(box['loc'][1]+center_margin))
-        print(qr_location)
-        self.image.paste(img_qr,qr_location)
+
+        self.image.paste(img_qr, qr_location)
+
+
+    # def qr_create(self,url,box):
+    #     qr = qrcode.QRCode(version=1, box_size=3, border=0,error_correction=qrcode.constants.ERROR_CORRECT_L )
+    #     qr.add_data(url)
+    #     qr.make()
+    #     img_qr = qr.make_image(fill_color="black", back_color="white")
+    #     print(f'image_qr.size: {img_qr.size}')
+    #     center_margin = (box['size'][1] - img_qr.size[1])/2
+    #     qr_location = (int(box['loc'][0]+box['size'][0] - box['size'][1]+center_margin),int(box['loc'][1]+center_margin))
+    #     print(qr_location)
+    #     self.image.paste(img_qr,qr_location)
     def input_event(self, event,box):
         # todo input dates
         print(f'Input event: {event}')
@@ -447,7 +482,7 @@ class Banner:
         self.draw_text_at_location(header, box, (0.5, 0.25))
         self.draw_text_at_location(title, box, (0.5, 0.33))
         self.draw_text_at_location(sub_text, box, (0.5, 0.80))
-        print(box)
+        print(f'event_box: {box}')
         self.qr_create(event['url'], box)
     # def calculate_box_locations(self,virtical_margins = None,horizontal_margin = None, ):
 
@@ -518,13 +553,15 @@ class Banner:
                 line_cord.append((box['loc'][0] + box['size'][0], box['size'][1] + box['loc'][1]))
             draw.line(line_cord,fill=WHITE,width=width)
 
-    def save_image(self):
+    def save_image(self, thumbnail=True):
         test = self.image.convert('L', dither=Image.NONE)
         
         self.image.save(self.output_file)
         self.image.save(self.newest_output_file, format='JPEG', **jpeg_params)
-        self.image.thumbnail((427,240))
-        self.image.save(self.output_thumbnail)
+        print(f'Image saved to {self.output_file}')
+        if thumbnail:
+            self.image.thumbnail((427,240))
+            self.image.save(self.output_thumbnail)
 
 
 def _download_image(from_url, to_file, chunk_size=2000):
@@ -625,7 +662,7 @@ def input_activities(all_activities, banner):
     for num in range(len(all_activities)):
         print(num)
         if activity_item_length > num:
-            print(f'all_events: {all_activities}')
+            print(f'all_activities: {all_activities}')
             banner.input_action(all_activities[num], activity_items[num])
 
 
@@ -671,9 +708,28 @@ def generate_banner(img_banner, upload=False):
     banner.generate_boarder(top_boxes,1,16)
     banner.generate_boarder(mid_line,0,10)
     banner.generate_boarder(events,1,16)
-    banner.generate_boarder(events,0,10)
+    banner.generate_boarder(events,0,5)
     banner.generate_boarder(action,1,16)
-    banner.generate_boarder(action,0,10)
+    banner.generate_boarder(action,0,5)
     banner.save_image()
+    return banner.output_file
 
+def generate_cell(item):
+    print(f'Generating item: {item}')
+    if item['category'] == 'event':
+        box = EVENT_BOX
+        banner = Banner(size=box['size'],output_file=f'{item["id"]}.jpg')
+        banner.input_event(item, box)
+    if item['category'] == 'activity':
+        box = ACTION_BOX
+        banner = Banner(size=box['size'],output_file=f'{item["id"]}.jpg')
+        banner.input_action(item, box)
+    if item['category'] == 'callout':
+        box = CALLOUT_BOX
+        banner = Banner(size=box['size'],output_file=f'{item["id"]}.jpg')
+        banner.input_callout(item, box)
+    if item['category'] == 'custom':
+        #TODO: add custom box
+        box = item['size']         
+    banner.save_image(thumbnail=False)
     return banner.output_file

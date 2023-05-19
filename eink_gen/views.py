@@ -5,14 +5,14 @@ from functools import wraps
 import os
 from dataclasses import dataclass
 from dateutil import parser
-
+from uuid import UUID, uuid4
 from flask import abort, render_template, flash, redirect, Blueprint
 from flask import request, session, url_for
 from werkzeug.utils import secure_filename
 from eink_gen.forms import ImageForm, get_logos, ActivityForm, CalloutForm, EventForm, UploadForm
 from eink_gen.model import db, Banner, CellData
 
-from eink_gen.banner.banner import generate_banner
+from eink_gen.banner.banner import generate_banner, generate_cell 
 
 app = Blueprint('app', __name__, template_folder="eink_gen")
 basedir = os.path.abspath(os.path.dirname(__file__))
@@ -45,6 +45,8 @@ class EventClass:
     only_image: int = None
     archived: bool = None
     image_file: str = None
+    id: int = None
+    # uuid: UUID = uuid4()
 
 
 ImgBanner =  namedtuple('Banner', 'name image1 image2 text background')
@@ -64,6 +66,12 @@ def make_sign():
     for x in cached_callouts:
         sign_data.append(x.__dict__)
     return generate_banner(sign_data)
+
+def make_cell(id):
+    activity_data = []
+    cached_cell = CellData.query.filter_by(id=id).first()
+    return generate_cell(cached_cell.__dict__)
+
 def login_required(test):
     '''From RealPython Flask course'''
     @wraps(test)
@@ -91,7 +99,7 @@ def _store_banner(data):
     db.session.commit()
 
 def _store_event(data):
-    target_event = CellData.query.filter_by(title=data.title).first()
+    target_event = CellData.query.filter_by(id=data.id).first()
     if target_event:
         target_event.title = data.title
         target_event.category = data.category
@@ -106,11 +114,17 @@ def _store_event(data):
     else:
         target_event = CellData(data)
         db.session.add(target_event)
+        db.session.commit()
+        target_event.slug = str(target_event.id)
+        return target_event.slug
     db.session.commit()
+    return str(target_event.id)
 
 
 def _store_activity(data):
-    activity = CellData.query.filter_by(title=data.title).first()
+    print(f'data: {data}')
+    activity = CellData.query.filter_by(id=data.id).first()
+    print(f'activity: {activity}')
     if activity:
         activity.date = data.date
         activity.title = data.title
@@ -121,10 +135,16 @@ def _store_activity(data):
     else:
         activity = CellData(data)
         db.session.add(activity)
+        db.session.commit()
+        activity.slug = str(activity.id)
+        print(f'new: {activity.slug}')
+        db.session.commit()
+        return activity.slug
     db.session.commit()
+    return str(activity.id)
 
 def _store_callout(data):
-    callout = CellData.query.filter_by(title=data.title).first()
+    callout = CellData.query.filter_by(id=data.id).first()
     if callout:
         callout.date = data.date
         callout.title = data.title
@@ -136,7 +156,11 @@ def _store_callout(data):
     else:
         callout = CellData(data)
         db.session.add(callout)
+        db.session.commit()
+        callout.slug = str(callout.id)
+        return callout.slug
     db.session.commit()
+    return str(callout.id)
 
 def _store_upload(data):
     ul = CellData(data)
@@ -161,7 +185,6 @@ def login():
 def _get_form():
     '''Get form. Logged out = python logo, logged in pybites logos'''
     form = ImageForm(request.form)
-
     # https://stackoverflow.com/a/16392248
     if session.get('logged_in'):
         logos = get_logos(subdir=PYBITES_SUBDIR)
@@ -193,6 +216,7 @@ def event(bannerid=None):
                 print(f'Not banner: id: {bannerid, type(bannerid)}')
                 abort(404)
 
+
     elif request.method == 'POST':
         print('post')
         category = 'event'
@@ -214,20 +238,12 @@ def event(bannerid=None):
                       url=url,
                       archived=False)
         print(event)
-        _store_event(event)
-
-        try:
-            print('try')
-            # outfile = generate_banner(banner)
-        except Exception as exc:
-            logger.error('Error generating banner, exc: {}'.format(exc))
-            abort(400)
+        bannerid = _store_event(event)
+        make_cell(int(bannerid))
+        if "save" in request.form:
+            print('save')
+            return redirect(url_for('app.event', bannerid=bannerid))
         return redirect(url_for('app.index'))
-        # if os.path.isfile(outfile):
-        #     return send_file(outfile, mimetype='image/png', cache_timeout=1)
-        # else:
-        #     logger.error('No output file {}'.format(outfile))
-        #     abort(400)
     return render_template('eventform.html', form=form)
 
 @app.route('/event/archive', methods=['GET', 'POST'])
@@ -252,9 +268,7 @@ def delete_event(bannerid=None):
     if request.method == 'GET':
         print('get')
         if bannerid:
-            if not bannerid.isdigit():
-                abort(400)
-            banner = CellData.query.filter_by(id=bannerid).first()
+            banner = CellData.query.filter_by(id=int(bannerid)).first()
             if not banner:
                 abort(404)
             db.session.delete(banner)
@@ -277,21 +291,20 @@ def activity(bannerid=None):
                          date=banner.date)
         dates = [banner.date, banner.start_time, banner.end_time]
         non_empty_fields = {}
-        if banner.date is not None:
+        non_empty_fields['id'] = int(banner.id)
+        print(type(banner.date))
+        if banner.date:
             non_empty_fields['date'] = parser.parse(banner.date)
-        if banner.start_time is not None:
+        if banner.start_time:
             non_empty_fields['start_time'] = parser.parse(banner.start_time)
-        if banner.end_time is not None:
+        if banner.end_time:
             non_empty_fields['end_time'] = parser.parse(banner.end_time)
-        if banner.url is not None:
+        if banner.url:
             non_empty_fields['url'] = banner.url
-        if banner.header is not None:
+        if banner.header:
             non_empty_fields['header'] = banner.header
-        # start_time=parser.parse(banner.start_time),
-        #                  end_time=parser.parse(banner.end_time), url=banner.url)
         print(non_empty_fields)
         form = ActivityForm(title=banner.title, sub_text=banner.sub_text, **non_empty_fields)
-
         # form = ActivityForm(title=banner.title, header=banner.header, sub_text=banner.sub_text,
         #                  date=parser.parse(banner.date), start_time=parser.parse(banner.start_time),
         #                  end_time=parser.parse(banner.end_time), url=banner.url)
@@ -300,28 +313,26 @@ def activity(bannerid=None):
             abort(404)
 
 
-    elif request.method == 'POST':
+    if request.method == 'POST':
+        id = request.form['id']
         category = 'activity'
         title = request.form['title']
         sub_text = request.form['sub_text']
         date = request.form['date']
         url = request.form['url']
-        activity = EventClass(category=category,
+        activity = EventClass(id=id,
+                        category=category,
                       title=title,
                       sub_text=sub_text,
                       date=date,
                       url=url,
                         archived=False)
-
-        _store_activity(activity)
-
+        bannerid = _store_activity(activity)
+        make_cell(int(bannerid))
+        if "save" in request.form:
+            print('save')
+            return redirect(url_for('app.activity', bannerid=bannerid))
         return redirect(url_for('app.index'))
-        # try:
-        #     outfile = generate_banner(activity)
-        # except Exception as exc:
-        #     logger.error('Error generating banner, exc: {}'.format(exc))
-        #     abort(400)
-
     return render_template('activityform.html', form=form)
 
 
@@ -400,13 +411,12 @@ def callout(bannerid=None):
                       image_file = filename,
                       only_image = int(only_image),
                         archived= False)
-        _store_callout(callout)
+        bannerid = _store_callout(callout)
+        make_cell(int(bannerid))
+        if "save" in request.form:
+            print('save')
+            return redirect(url_for('app.callout', bannerid=bannerid))
         return redirect(url_for('app.index'))
-        # try:
-        #     outfile = generate_banner(callout)
-        # except Exception as exc:
-        #     logger.error('Error generating banner, exc: {}'.format(exc))
-        #     abort(400)
     return render_template('calloutform.html', form=form)
 
 @app.route('/upload',methods=['GET', 'POST'])
@@ -439,12 +449,6 @@ def upload():
         _store_upload(upload)
 
         return redirect(url_for('app.index'))
-        # try:
-        #     outfile = generate_banner(callout)
-        # except Exception as exc:
-        #     logger.error('Error generating banner, exc: {}'.format(exc))
-        #     abort(400)
-
     return render_template('uploadform.html', form=form) 
 
 # Store banner / generate

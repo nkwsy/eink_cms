@@ -4,7 +4,7 @@ import os
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired
 
-from wtforms import Form, BooleanField, StringField, DateTimeField, DateField, TimeField, URLField, SubmitField
+from wtforms import Form, BooleanField, StringField, DateTimeField, DateField, TimeField, URLField, SubmitField, HiddenField
 from wtforms import SelectField, TextAreaField, validators
 from wtforms.validators import DataRequired, Length, Email, EqualTo
 
@@ -35,6 +35,7 @@ class EventForm(FlaskForm):
     submit = SubmitField('Submit')
 
 class ActivityForm(FlaskForm):
+    id = HiddenField('id', default=None)
     title = StringField('Title')
     sub_text = TextAreaField('Subtext')
     url = URLField('Url', default=None)
