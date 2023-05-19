@@ -5,12 +5,17 @@
     {% from "_formhelpers.html" import render_field %}
     <form class="pure-form pure-form-stacked" action="/activity" id="activityForm" method=post>
             {{ form.csrf_token }}
+            {{ render_field(form.id) }}
             {{ render_field(form.title) }}
             {{ render_field(form.sub_text) }}
             {{ render_field(form.date) }}
             {{ render_field(form.url) }}
             {{ render_field(form.start_time) }}
             {{ render_field(form.end_time) }}
-            <button type=submit class="pure-button pure-button-primary">Generate banner</button>
+            {{ render_field(form.image_file) }}
+            {{ render_field(form.only_image) }}
+            <button type="submit" class="btn btn-success" value="save" name="save">Save</button>
+            <button type="submit" class="btn btn-primary">Generate banner</button>            
     </form>
+    <image src='/static/{{request.view_args.bannerid}}.jpg'/>
 {% endblock %}

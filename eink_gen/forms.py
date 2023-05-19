@@ -4,7 +4,7 @@ import os
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired
 
-from wtforms import Form, BooleanField, StringField, DateTimeField, DateField, TimeField, URLField, SubmitField
+from wtforms import Form, BooleanField, StringField, DateTimeField, DateField, TimeField, URLField, SubmitField, HiddenField
 from wtforms import SelectField, TextAreaField, validators
 from wtforms.validators import DataRequired, Length, Email, EqualTo
 
@@ -30,24 +30,29 @@ class EventForm(FlaskForm):
     start_time = TimeField('Start Time', default=None)
     end_time = TimeField('End Time', default=None)
     url = URLField('URL')
+    image_file = FileField('Image File')
+    only_image = SelectField('Use image as whole box',choices=[(1,'True'),(0,'False')])
     submit = SubmitField('Submit')
 
 class ActivityForm(FlaskForm):
+    id = HiddenField('id', default=None)
     title = StringField('Title')
     sub_text = TextAreaField('Subtext')
     url = URLField('Url', default=None)
     date = DateField('Event Start', default=None)
     start_time = TimeField('Start Time', default=None)
     end_time = TimeField('End Time', default=None)
-
+    image_file = FileField('Image File')
+    only_image = SelectField('Use image as whole box',choices=[(1,'True'),(0,'False')])
+ 
 class CalloutForm(FlaskForm):
     title = StringField('Title')
     sub_text = StringField('Callout Header')
     body = StringField('Body')
     url = URLField('URL')
     image_file = FileField('Image File')
-    only_image = SelectField('Use image as whole box',choices=[('True','True'),('False','False')])
-
+    only_image = SelectField('Use image as whole box',choices=[(1,'True'),(0,'False')])
+    # only_image = BooleanField('Use image as whole box', default=False)
 class UploadForm(FlaskForm):
     image_file = FileField('Image File', validators=[FileRequired()])
     submit = SubmitField('Submit')
