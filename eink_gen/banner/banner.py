@@ -283,9 +283,9 @@ class Banner:
     def add_welcome(self):
         image = "32Eink_WM_title.jpg"
         self.add_image(get_image(image), box=welcome)
-    def add_callout(self):
+    def add_callout(self, image_file):
         image = "32Eink_lightfoot.jpg"
-        self.add_image(get_image(image), box=facts)
+        self.add_image(get_image(image_file), box=facts)
     def add_water_data(self):
         image = "32Eink_water_data.jpg"
         self.add_image(get_image(image), box=data_box)
@@ -405,10 +405,10 @@ class Banner:
         if type(date) == str:
             datetime.strptime(date)
         # %a abbreviated day, %d is 01
-        day = Font(ttf=demiBold_font,text=date.strftime("%A"),color=WHITE, size=font_size(3), offset=None,anchor='mb')
+        day = Font(ttf=demiBold_font,text=date.strftime("%a"),color=WHITE, size=font_size(4), offset=None,anchor='mb')
         day_of_month = Font(ttf=medium_font,text=date.strftime("%-d"),color=WHITE, size=font_size(8), offset=boarder_l,anchor='mb')
         print(f'\n\n{day_of_month}\n')
-        month = Font(ttf=medium_font,text=date.strftime("%B"),color=WHITE, size=font_size(1), offset=None,anchor='mt')
+        month = Font(ttf=medium_font,text=date.strftime("%B"),color=WHITE, size=font_size(2), offset=None,anchor='mt')
         self.draw_text_at_location(day_of_month,box,day_of_month_center)
         self.draw_text_at_location(day,box,day_center)
         self.draw_text_at_location(month,box,month_center)
@@ -485,6 +485,9 @@ class Banner:
         # todo input dates
         print(f'Input callout: {event}')
         # category = Font(text=event['header'], **header_font)
+        if event['only_image'] == True:
+            self.add_callout(event['image_file'])
+            return
         header = Font(text=event['header'], **callout_header_font)
         title = Font(text=event['title'], **callout_title_font)
         body = Font(text=event['body'], **callout_body_font)
@@ -587,6 +590,8 @@ def filter_inputs(inputs,banner):
     all_activities = []
     callout = ''
     for input in inputs:
+        if input['archived'] == True:
+            next
         if input['date']:
             input['date'] = parser.parse(input['date'])
             if input['start_time']:
@@ -603,7 +608,8 @@ def filter_inputs(inputs,banner):
             banner.input_callout(callout, banner)
     input_events(all_events,banner)
     input_activities(all_activities, banner)
-
+    # input_callout(callout, banner)
+    
 def input_events(all_events,banner):
     print(f'all_events: {all_events}')
     all_events = sorted(all_events, key=lambda d: d['date'])
@@ -623,11 +629,12 @@ def input_activities(all_activities, banner):
             banner.input_action(all_activities[num], activity_items[num])
 
 
-def generate_banner(img_banner):
+def generate_banner(img_banner, upload=False):
     # image1 = img_banner.image1
     # image2 = get_image(img_banner.image2)
     # text = img_banner.text
-
+    if upload:
+        Image.convert
     banner = Banner()
     filter_inputs(img_banner, banner)
     # banner.add_solid_background()
@@ -657,7 +664,7 @@ def generate_banner(img_banner):
 
     banner.add_park_rules()
     banner.add_welcome()
-    banner.add_callout()
+    # banner.add_callout()
     banner.add_get_involved()
     banner.add_water_data()
 

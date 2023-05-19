@@ -24,11 +24,6 @@ db = SQLAlchemy()
 
 class CellData(db.Model):
     id = db.Column(db.Integer, primary_key=True)
-    # name = db.Column(db.String(100))  # for caching banners
-    # image_url1 = db.Column(db.String(100))  # from dropdown
-    # image_url2 = db.Column(db.String(500))  # image URL
-    # text = db.Column(db.String(500))
-    # background = db.Column(db.Boolean)
     category = db.Column(db.String())
     date = db.Column(db.String, nullable=True)
     start_time = db.Column(db.String,nullable=True)
@@ -40,6 +35,7 @@ class CellData(db.Model):
     url = db.Column(db.String())
     only_image = db.Column(db.Boolean())
     archived = db.Column(db.Boolean())
+    image_file = db.Column(db.String())
 
 
     def __init__(self, banner):
@@ -54,6 +50,7 @@ class CellData(db.Model):
         self.url = banner.url
         self.only_image = banner.only_image
         self.archived = banner.archived
+        self.image_file = banner.image_file
     # def new_event(self, banner):
     #     self.category = banner.category
     #     self.date = banner.date

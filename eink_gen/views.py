@@ -42,7 +42,7 @@ class EventClass:
     sub_text: str = None
     body: str = None
     url: str = None
-    only_image: bool = None
+    only_image: int = None
     archived: bool = None
     image_file: str = None
 
@@ -100,6 +100,8 @@ def _store_event(data):
         target_event.start_time = data.start_time
         target_event.end_time = data.end_time
         target_event.url = data.url
+        target_event.image_file = data.image_file
+        target_event.only_image = data.only_image
         db.session.add(target_event)
     else:
         target_event = CellData(data)
@@ -114,6 +116,8 @@ def _store_activity(data):
         activity.title = data.title
         activity.sub_text = data.sub_text
         activity.url = data.url
+        activity.image_file = data.image_file
+        activity.only_image = data.only_image
     else:
         activity = CellData(data)
         db.session.add(activity)
@@ -320,13 +324,50 @@ def activity(bannerid=None):
 
     return render_template('activityform.html', form=form)
 
-@app.route('/callout',methods=['GET', 'POST'])
-@app.route('/callout/<bannerid>', methods=['GET', 'POST'])
+
+@app.route('/callout/archive', methods=['GET', 'POST'])
+@app.route('/callout/archive/<bannerid>', methods=['GET', 'POST'])
+def archive_callout(bannerid=None):
+    form = CalloutForm()
+    if request.method == 'GET':
+        print('archive callout')
+        if bannerid:
+            if not bannerid.isdigit():
+                abort(400)
+            banner = CellData.query.filter_by(id=bannerid).first()
+            print(banner,bannerid)
+            if not banner:
+                abort(404)
+            db.session.delete(banner)
+            db.session.commit()
+    return redirect(url_for('app.index'))
+
+@app.route('/callout/delete/<bannerid>', methods=['GET', 'POST'])
+def delete_callout(bannerid=None):
+    form = CalloutForm()
+    if request.method == 'GET':
+        print('get')
+        if bannerid:
+            if not bannerid.isdigit():
+                print('Bannerid is not digit')
+                abort(400)
+            banner = CellData.query.filter_by(id=bannerid).first()
+            if not banner:
+                abort(404)
+            db.session.delete(banner)
+            db.session.commit()
+            return redirect(url_for('app.index'))
+
+
+
+@app.route('/callout', methods=['GET', 'POST'])
+@app.route('/callout/edit/<bannerid>', methods=['GET', 'POST'])
 def callout(bannerid=None):
     form = CalloutForm()
     if request.method == 'GET':
         if bannerid:
             if not bannerid.isdigit():
+                print('Bannerid is not digit')
                 abort(400)
             banner = Banner.query.filter_by(id=bannerid).first()
             if not banner:
@@ -357,17 +398,15 @@ def callout(bannerid=None):
                       body=body,
                       url= url,
                       image_file = filename,
-                      only_image = only_image,
+                      only_image = int(only_image),
                         archived= False)
         _store_callout(callout)
-
         return redirect(url_for('app.index'))
         # try:
         #     outfile = generate_banner(callout)
         # except Exception as exc:
         #     logger.error('Error generating banner, exc: {}'.format(exc))
         #     abort(400)
-
     return render_template('calloutform.html', form=form)
 
 @app.route('/upload',methods=['GET', 'POST'])
@@ -419,66 +458,20 @@ def gen_img():
 @app.route('/', methods=['GET', 'POST'])
 def index(bannerid=None):
     form = _get_form()
-    cached_banners = CellData.query.all()
+    # cached_banners = CellData.query.all()
     cached_events = CellData.query.filter_by(category='event').all()
     cached_activities = CellData.query.filter_by(category='activity').all()
     cached_callouts = CellData.query.filter_by(category='callout').all()
-    for x in cached_events:
+    for x in cached_callouts:
         print(x.__dict__)
     # if a get request with valid banner id prepopulate form
     if request.method == 'GET':
         print('/ get')
-        if bannerid:
-            if not bannerid.isdigit():
-                abort(400)
-
-            banner = Banner.query.filter_by(id=bannerid).first()
-            if not banner:
-                abort(404)
-
-            form.name.data = banner.name
-            form.image_url1.data = banner.image_url1
-            form.image_url2.data = banner.image_url2
-            form.text.data = banner.text
-            form.background.data = banner.background
-
-    # else if post request validate and generate banner image
-    # elif request.method == 'POST' and form.validate():
-    elif request.method == 'POST':
-        print('/ post')
-        name = form.name.data
-        image1 = form.image_url1.data
-        image2 = form.image_url2.data
-        text = form.text.data
-        background = form.background.data
-
-        make_sign()
-        banner = ImgBanner(name=name,
-                           image1=image1,
-                           image2=image2,
-                           text=text,
-                           background=background)
-
-        # if session.get('logged_in'):
-        _store_banner(banner)
-        #
-        # try:
-        #     outfile = generate_banner(banner)
-        # except Exception as exc:
-        #     logger.error('Error generating banner, exc: {}'.format(exc))
-        #     abort(400)
-        #
-        # if os.path.isfile(outfile):
-        #     return send_file(outfile, mimetype='image/png')
-        # else:
-        #     logger.error('No output file {}'.format(outfile))
-        #     abort(400)
-    return render_template('imageform.html',
+        return render_template('imageform.html',
                            form=form,
                            activities=cached_activities,
                            events=cached_events,
-                           callouts=cached_callouts,
-                           banners=cached_banners)
+                           callouts=cached_callouts)
 
 
 # if __name__ == "__main__":
