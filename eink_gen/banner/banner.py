@@ -400,7 +400,12 @@ class Banner:
         #             size=TEXT_SIZE,
         #             anchor=None,
         #             offset=None)
-
+        if type(date) == str:
+            date = parser.parse(date)
+        if type(start_time) == str:
+                start_time = parser.parse(start_time)
+        if end_time:
+                end_time = parser.parse(end_time)
         text_box = (box['loc'][0]+60, box['loc'][1]+60)
         print(f'text_box_date: {text_box}, Date: {type(date)}')
         if type(date) == str:
