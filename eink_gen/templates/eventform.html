@@ -7,6 +7,7 @@
         <div class="mb-3"> 
 {#    <fieldset>#}
         {{ form.csrf_token }}
+        {{ render_field(form.id) }}
         {{ render_field(form.title) }}
         {{ render_field(form.header_text) }}
         {{ render_field(form.sub_text) }}
@@ -21,4 +22,5 @@
 {#    </fieldset>#}
 </div>
 </form>
+<image src='/static/{{request.view_args.bannerid}}.jpg'/>
 {% endblock %}

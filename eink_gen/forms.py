@@ -23,8 +23,9 @@ def get_logos(subdir='python'):
 DEFAULT_LOGOS = get_logos()
 
 class EventForm(FlaskForm):
+    id = HiddenField('id', default=None)
     header_text = StringField('Header', default='Wild Mile Workshop')
-    title = StringField('Title')
+    title = StringField('Title', validators=[Length(max=35)])
     sub_text = StringField('Subtext')
     date = DateField('Event Start', default=None,  validators = [DataRequired()])
     start_time = TimeField('Start Time', default=None)
@@ -46,6 +47,7 @@ class ActivityForm(FlaskForm):
     only_image = SelectField('Use image as whole box',choices=[(0,'False'),(1,'True')])
  
 class CalloutForm(FlaskForm):
+    id = HiddenField('id', default=None)
     title = StringField('Title')
     sub_text = StringField('Callout Header')
     body = StringField('Body')

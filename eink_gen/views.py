@@ -101,6 +101,8 @@ def _store_banner(data):
 def _store_event(data):
     target_event = CellData.query.filter_by(id=data.id).first()
     if target_event:
+        print(f'updating {target_event}')
+        target_event.id = target_event.id
         target_event.title = data.title
         target_event.category = data.category
         target_event.date = data.date
@@ -110,7 +112,7 @@ def _store_event(data):
         target_event.url = data.url
         target_event.image_file = data.image_file
         target_event.only_image = data.only_image
-        db.session.add(target_event)
+        # db.session.add(target_event)
     else:
         target_event = CellData(data)
         db.session.add(target_event)
@@ -126,6 +128,7 @@ def _store_activity(data):
     activity = CellData.query.filter_by(id=data.id).first()
     print(f'activity: {activity}')
     if activity:
+        activity.id = activity.id
         activity.date = data.date
         activity.title = data.title
         activity.sub_text = data.sub_text
@@ -146,6 +149,7 @@ def _store_activity(data):
 def _store_callout(data):
     callout = CellData.query.filter_by(id=data.id).first()
     if callout:
+        callout.id = callout.id
         callout.date = data.date
         callout.title = data.title
         callout.sub_text = data.sub_text
@@ -220,6 +224,7 @@ def event(bannerid=None):
     elif request.method == 'POST':
         print('post')
         category = 'event'
+        id = request.form['id']
         header = request.form['header_text']
         title = request.form['title']
         sub_text = request.form['sub_text']
@@ -228,7 +233,8 @@ def event(bannerid=None):
         end_time = request.form['end_time']
         url = request.form['url']
         print(form.data)
-        event = EventClass(category=category,
+        event = EventClass(id=id,
+                        category=category,
                       header=header,
                       title=title,
                       sub_text=sub_text,
