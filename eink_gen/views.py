@@ -215,7 +215,7 @@ def event(bannerid=None):
             bannerid = int(bannerid)
             banner = CellData.query.filter_by(id=int(bannerid)).first()
             print(banner.title)
-            form = EventForm(title=banner.title, header= banner.header, sub_text=banner.sub_text,date=parser.parse(banner.date),start_time=parser.parse(banner.start_time), end_time=parser.parse(banner.end_time), url=banner.url)
+            form = EventForm(title=banner.title, header_text= banner.header, sub_text=banner.sub_text,date=parser.parse(banner.date),start_time=parser.parse(banner.start_time), end_time=parser.parse(banner.end_time), url=banner.url)
             if not banner:
                 print(f'Not banner: id: {bannerid, type(bannerid)}')
                 abort(404)
