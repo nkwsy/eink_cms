@@ -19,12 +19,11 @@ def get_logos(subdir='python'):
     logos = glob.glob(os.path.join('banner/assets', subdir, '*' + EXTENSION))
     return [(logo, get_basename(logo)) for logo in logos]
 
-
 DEFAULT_LOGOS = get_logos()
 
 class EventForm(FlaskForm):
     id = HiddenField('id', default=None)
-    header_text = StringField('Header', default='Wild Mile Workshop')
+    header_text = StringField('Header')
     title = StringField('Title', validators=[Length(max=35)])
     sub_text = StringField('Subtext')
     date = DateField('Event Start', default=None,  validators = [DataRequired()])

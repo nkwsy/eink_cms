@@ -20,8 +20,6 @@ db = SQLAlchemy()
 #
 # app.config['SECRET_KEY'] = os.getenv('SECRET_KEY')
 
-
-
 class CellData(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     category = db.Column(db.String())

@@ -546,7 +546,6 @@ class Banner:
         direction: 0=below/horizontal 1=right/virtical
         width of line
         """
-
         draw = ImageDraw.Draw(self.image)
         for box in boxes:
             line_cord = []
