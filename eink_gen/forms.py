@@ -19,7 +19,6 @@ def get_logos(subdir='python'):
     logos = glob.glob(os.path.join('banner/assets', subdir, '*' + EXTENSION))
     return [(logo, get_basename(logo)) for logo in logos]
 
-
 DEFAULT_LOGOS = get_logos()
 
 class EventForm(FlaskForm):

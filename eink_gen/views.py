@@ -482,7 +482,3 @@ def index(bannerid=None):
                            activities=cached_activities,
                            events=cached_events,
                            callouts=cached_callouts)
-
-
-# if __name__ == "__main__":
-#     app.run(debug=True, port=3000)
