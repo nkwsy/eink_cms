@@ -23,7 +23,7 @@ DEFAULT_LOGOS = get_logos()
 
 class EventForm(FlaskForm):
     id = HiddenField('id', default=None)
-    header_text = StringField('Header')
+    header_text = StringField('Header', default='Wild Mile Workshop')
     title = StringField('Title', validators=[Length(max=35)])
     sub_text = StringField('Subtext')
     date = DateField('Event Start', default=None,  validators = [DataRequired()])
