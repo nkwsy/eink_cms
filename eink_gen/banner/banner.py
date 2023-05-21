@@ -238,7 +238,7 @@ class Banner:
         '''Adds text on a given image object'''
         draw = ImageDraw.Draw(self.image)
         pillow_font = ImageFont.truetype(font.ttf, font.size)
-
+        pillow_font.fontmode = '1'  # make sure it's a bitmap font
         # from https://stackoverflow.com/a/7698300
         # if only 1 image use the extra space for text
         single_image = len(self.image_coords) == 1
@@ -400,7 +400,12 @@ class Banner:
         #             size=TEXT_SIZE,
         #             anchor=None,
         #             offset=None)
-
+        if type(date) == str:
+            date = parser.parse(date)
+        if type(start_time) == str:
+                start_time = parser.parse(start_time)
+        if type(end_time) == str:
+                end_time = parser.parse(end_time)
         text_box = (box['loc'][0]+60, box['loc'][1]+60)
         print(f'text_box_date: {text_box}, Date: {type(date)}')
         if type(date) == str:
