@@ -505,7 +505,7 @@ def gen_img():
 
 @app.route('/deploy/<display_id>')
 def deploy(display_id):
-    file_path = 'static/out.jpg'
+    file_path = '/static/out.jpg'
     upload_file_to_s3(file_path,'out.jpg')
     return redirect(url_for('app.index'))
 
