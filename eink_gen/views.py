@@ -34,12 +34,10 @@ s3_client = boto3.client(
 
 def upload_file_to_s3(file_path, object_name=None):
     """Upload a file to an S3 bucket.
-
     Parameters:
         file_path (str): File to upload
         object_name (str): S3 object name. If not specified then file_path is used.
     """
-
     if object_name is None:
         object_name = file_path
 
@@ -507,8 +505,8 @@ def gen_img():
 
 @app.route('/deploy/<display_id>')
 def deploy(display_id):
-    file_path = os.path.join(os.path.join(basedir, 'static/'), 'out.jpg')
-    upload_file_to_s3(file_path)
+    file_path = 'static/out.jpg'
+    upload_file_to_s3(file_path,'out.jpg')
     return redirect(url_for('app.index'))
 
 # @app.route('/<bannerid>', methods=['GET', 'POST'])
