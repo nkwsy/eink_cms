@@ -14,6 +14,47 @@ from eink_gen.model import db, Banner, CellData
 
 from eink_gen.banner.banner import generate_banner, generate_cell 
 
+import boto3
+from dotenv import load_dotenv
+
+# Load environment variables from .env file
+load_dotenv()
+
+# Retrieve environment variables
+AWS_ACCESS_KEY_ID = os.getenv("AWS_ACCESS_KEY_ID")
+AWS_SECRET_ACCESS_KEY = os.getenv("AWS_SECRET_ACCESS_KEY")
+AWS_S3_BUCKET_NAME = os.getenv("AWS_S3_BUCKET_NAME")
+
+# Initialize boto3 client
+s3_client = boto3.client(
+    "s3",
+    aws_access_key_id=AWS_ACCESS_KEY_ID,
+    aws_secret_access_key=AWS_SECRET_ACCESS_KEY,
+)
+
+def upload_file_to_s3(file_path, object_name=None):
+    """Upload a file to an S3 bucket.
+
+    Parameters:
+        file_path (str): File to upload
+        object_name (str): S3 object name. If not specified then file_path is used.
+    """
+
+    if object_name is None:
+        object_name = file_path
+
+    try:
+        # Upload the file
+        s3_client.upload_file(file_path, AWS_S3_BUCKET_NAME, object_name)
+        print(f"Successfully uploaded {file_path} to {AWS_S3_BUCKET_NAME}/{object_name}")
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+if __name__ == "__main__":
+    # Replace 'your_file.txt' with the file you want to upload to the S3 bucket
+    upload_file_to_s3("your_file.txt")
+
+
 app = Blueprint('app', __name__, template_folder="eink_gen")
 basedir = os.path.abspath(os.path.dirname(__file__))
 
@@ -462,6 +503,12 @@ def upload():
 @app.route('/generate')
 def gen_img():
     make_sign()
+    return redirect(url_for('app.index'))
+
+@app.route('/deploy/<display_id>')
+def deploy(display_id):
+    file_path = os.path.join(os.path.join(basedir, 'static/'), 'out.jpg')
+    upload_file_to_s3(file_path)
     return redirect(url_for('app.index'))
 
 # @app.route('/<bannerid>', methods=['GET', 'POST'])
