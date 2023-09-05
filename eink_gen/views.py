@@ -498,9 +498,12 @@ def upload():
 
 # Store banner / generate
 # @app.route('/', methods=['GET'])
+#TODO separate the upload to s3 from the generate
 @app.route('/generate')
 def gen_img():
     make_sign()
+    file_path = os.path.join(os.path.join(basedir, 'static/'), 'out.jpg')
+    upload_file_to_s3(file_path,'out.jpg')    
     return redirect(url_for('app.index'))
 
 @app.route('/deploy/<display_id>')
