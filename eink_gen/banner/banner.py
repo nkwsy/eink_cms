@@ -557,11 +557,15 @@ class Banner:
                 line_cord.append((box['loc'][0] + box['size'][0], box['size'][1] + box['loc'][1]))
             draw.line(line_cord,fill=WHITE,width=width)
 
-    def save_image(self, thumbnail=True):
+    def save_image(self, thumbnail=True, rotate=True):
         test = self.image.convert('L', dither=Image.NONE)
         
         self.image.save(self.output_file)
+        im = Image.open(self.output_file)
+        out = im.rotate(90, expand=True)
+        out.save(self.output_file)
         self.image.save(self.newest_output_file, format='JPEG', **jpeg_params)
+
         print(f'Image saved to {self.output_file}')
         if thumbnail:
             self.image.thumbnail((427,240))
