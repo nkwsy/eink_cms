@@ -562,9 +562,9 @@ class Banner:
         
         self.image.save(self.output_file)
         self.image.save(self.newest_output_file, format='JPEG', **jpeg_params)
-        im = Image.open(self.output_file)
+        im = Image.open(self.newest_output_file)
         out = im.rotate(90, expand=True)
-        out.save(self.output_file)
+        out.save(self.newest_output_file)
 
         print(f'Image saved to {self.output_file}')
         if thumbnail:
