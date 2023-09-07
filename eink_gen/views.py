@@ -259,7 +259,6 @@ def event(bannerid=None):
                 print(f'Not banner: id: {bannerid, type(bannerid)}')
                 abort(404)
 
-
     elif request.method == 'POST':
         print('post')
         category = 'event'
