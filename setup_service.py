@@ -2,10 +2,10 @@
 #run with sudo python setup_service.py
 
 import os
-from systemd_service import SystemdService
+from systemd_service import Service
 
 # Initialize SystemdService instance
-service = SystemdService()
+service = Service()
 
 # Get the path to the current directory (where your script is located)
 current_directory = os.path.dirname(os.path.abspath(__file__))
@@ -22,7 +22,7 @@ service.description = "eink service"
 # Adjust the command according to your needs
 service.exec_start = f"{venv_path}/bin/gunicorn -w 4 -b 0.0.0.0 'eink_gen:create_app()'"
 service.restart = "always"
-service.user = "username"
+service.user = "debmin"
 service.after = "network-online.target"
 service.environment = {"PYTHONUNBUFFERED": "1"}
 
