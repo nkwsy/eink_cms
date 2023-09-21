@@ -1,40 +1,53 @@
 #create systemd service
-#run with sudo python setup_service.py
-
 import os
-from systemd_service import Service
+import argparse
 
-# Initialize SystemdService instance
-service = Service()
+def generate_service_file(service_name, description, username):
+    # Get the current working directory
+    current_directory = os.path.dirname(os.path.abspath(__file__))
 
-# Get the path to the current directory (where your script is located)
-current_directory = os.path.dirname(os.path.abspath(__file__))
+    # Virtual environment path (customize this if your venv is located elsewhere)
+    venv_path = os.path.join(current_directory, "venv")
 
-# Assuming that the virtual environment is in the same directory
-# Or adjust the path as per your setup
-venv_path = os.path.join(current_directory, "venv")
+    # Create the systemd service content
+    service_content = f"""[Unit]
+Description={description}
+After=network-online.target
 
-# Populate basic service settings
-service.name = "eink"
-service.description = "eink service"
+[Service]
+ExecStart={venv_path}/bin/gunicorn -w 4 -b 0.0.0.0 'eink_gen:create_app()'
+Restart=always
+User={username}
+Environment=PYTHONUNBUFFERED=1
 
-# Specify the gunicorn command and your application entry point
-# Adjust the command according to your needs
-service.exec_start = f"{venv_path}/bin/gunicorn -w 4 -b 0.0.0.0 'eink_gen:create_app()'"
-service.restart = "always"
-service.user = "debmin"
-service.after = "network-online.target"
-service.environment = {"PYTHONUNBUFFERED": "1"}
+[Install]
+WantedBy=multi-user.target
+    """
 
-# Generate the service
-service_path = service.generate_service_file()
+    # Write the service file (this will write it in the current directory; you'll need to move it manually)
+    with open(f"{service_name}.service", "w") as f:
+        f.write(service_content)
 
-# Copy the generated file to /etc/systemd/system
-service.install()
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="Generate systemd service file.")
 
-# Reload the systemctl daemon to recognize your new service
-service.reload()
+    parser.add_argument("--name", required=True, help="Service name")
+    parser.add_argument("--description", default="My Python service", help="Service description")
+    parser.add_argument("--username", required=True, help="Username to run the service")
 
-# Enable and start your service
-service.enable()
-service.start()
+    args = parser.parse_args()
+
+    generate_service_file(args.name, args.description, args.username)
+
+    print(f"Service file {args.name}.service generated.")
+    print("Next steps:")
+    print(f"1. Move the generated {args.name}.service file to /etc/systemd/system/")
+    print("   Command: sudo mv {args.name}.service /etc/systemd/system/")
+    print("2. Reload the systemctl daemon.")
+    print("   Command: sudo systemctl daemon-reload")
+    print(f"3. Enable the {args.name} service to start on boot.")
+    print(f"   Command: sudo systemctl enable {args.name}")
+    print(f"4. Start the {args.name} service.")
+    print(f"   Command: sudo systemctl start {args.name}")
+    print("5. Optionally, check the status of the service.")
+    print(f"   Command: sudo systemctl status {args.name}")
