@@ -88,6 +88,21 @@ class Banner(db.Model):
     def __repr__(self):
         return '<Banner %r>' % self.name
 
+class EInkScreen(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(100), nullable=False)
+    location = db.Column(db.String(100), nullable=True)
+    pixel_width = db.Column(db.Integer, nullable=False)
+    pixel_height = db.Column(db.Integer, nullable=False)
+
+    def __init__(self, name, location, pixel_width, pixel_height):
+        self.name = name
+        self.location = location
+        self.pixel_width = pixel_width
+        self.pixel_height = pixel_height
+
+    def __repr__(self):
+        return f'<EInkScreen {self.name}>'
 
 if __name__ == '__main__':
 

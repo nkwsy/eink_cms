@@ -12,8 +12,8 @@ from flask import abort, render_template, flash, redirect, Blueprint
 
 from flask import request, session, url_for
 from werkzeug.utils import secure_filename
-from eink_gen.forms import ImageForm, get_logos, ActivityForm, CalloutForm, EventForm
-from eink_gen.model import db, Banner, CellData
+from eink_gen.forms import ImageForm, get_logos, ActivityForm, CalloutForm, EventForm, EInkScreenForm
+from eink_gen.model import db, Banner, CellData, EInkScreen
 
 from eink_gen.banner.banner import generate_banner
 
@@ -33,5 +33,8 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 # logging.basicConfig(filename='../app.log', level=logging.INFO)
 # logger = logging.getLogger(__name__)
 
+
 if __name__ == "__main__":
+    # Ensure the database tables are created
+    db.create_all()
     app.run(debug=True)

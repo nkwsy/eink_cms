@@ -1,5 +1,7 @@
 import glob
 import os
+import boto3
+from flask import current_app
 
 from flask_wtf import FlaskForm
 from flask_wtf.file import FileField, FileRequired
@@ -76,3 +78,19 @@ class ImageForm(Form):
         validators.Length(max=500)
     ])
     background = BooleanField('Use Second Image as Background?', default=True)
+
+class EInkScreenForm(FlaskForm):
+    name = StringField('Screen Name', validators=[DataRequired(), Length(max=100)])
+    location = StringField('Location', validators=[Length(max=100)])
+    pixel_width = StringField('Pixel Width', validators=[DataRequired()])
+    pixel_height = StringField('Pixel Height', validators=[DataRequired()])
+    submit = SubmitField('Save Screen')
+
+def upload_to_s3(file, bucket_name, object_name):
+    s3_client = boto3.client('s3')
+    try:
+        s3_client.upload_fileobj(file, bucket_name, object_name)
+        return True
+    except Exception as e:
+        current_app.logger.error(f"Failed to upload to S3: {e}")
+        return False

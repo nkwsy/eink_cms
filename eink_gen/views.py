@@ -8,6 +8,8 @@ from dateutil import parser
 from uuid import UUID, uuid4
 from flask import abort, render_template, flash, redirect, Blueprint
 from flask import request, session, url_for
+from eink_gen.forms import EInkScreenForm
+from eink_gen.model import EInkScreen, db
 from werkzeug.utils import secure_filename
 from eink_gen.forms import ImageForm, get_logos, ActivityForm, CalloutForm, EventForm, UploadForm
 from eink_gen.model import db, Banner, CellData
@@ -510,6 +512,41 @@ def deploy(display_id):
     file_path = os.path.join(os.path.join(basedir, 'static/'), 'out.jpg')
     upload_file_to_s3(file_path,'out.jpg')
     return redirect(url_for('app.index'))
+
+@app.route('/screens/new', methods=['GET', 'POST'])
+def new_screen():
+    form = EInkScreenForm()
+    if form.validate_on_submit():
+        screen = EInkScreen(
+            name=form.name.data,
+            location=form.location.data,
+            pixel_width=form.pixel_width.data,
+            pixel_height=form.pixel_height.data
+        )
+        db.session.add(screen)
+        db.session.commit()
+        flash('Screen created successfully!', 'success')
+        return redirect(url_for('screen_list'))
+    return render_template('new_screen.html', form=form)
+
+@app.route('/screens')
+def screen_list():
+    screens = EInkScreen.query.all()
+    return render_template('screen_list.html', screens=screens)
+
+@app.route('/screens/edit/<int:screen_id>', methods=['GET', 'POST'])
+def edit_screen(screen_id):
+    screen = EInkScreen.query.get_or_404(screen_id)
+    form = EInkScreenForm(obj=screen)
+    if form.validate_on_submit():
+        screen.name = form.name.data
+        screen.location = form.location.data
+        screen.pixel_width = form.pixel_width.data
+        screen.pixel_height = form.pixel_height.data
+        db.session.commit()
+        flash('Screen updated successfully!', 'success')
+        return redirect(url_for('screen_list'))
+    return render_template('edit_screen.html', form=form, screen=screen)
 
 # @app.route('/<bannerid>', methods=['GET', 'POST'])
 @app.route('/', methods=['GET', 'POST'])
