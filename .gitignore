@@ -1,10 +1,31 @@
-*swp
-*pyc
+# Python legacy
+*.pyc
 __pycache__
-eink_gen.egg-info
-eink_gen/banner/images/archive/*
-!eink_gen/banner/images/.gitkeep
-venv
-eink_gen/banners.db
-app.log
+legacy/eink_gen.egg-info
+legacy/eink_gen/banners.db
+legacy/app.log
+
+# Env
 .env
+.env.local
+.env.*.local
+
+# Node / Next
+node_modules
+.next
+out
+.vercel
+next-env.d.ts
+tsconfig.tsbuildinfo
+
+# Misc
+.DS_Store
+*.log
+venv
+
+# Local editor / Claude config
+.claude/
+
+# Render test artifacts
+scripts/wildmile.png
+scripts/wildmile.bmp
