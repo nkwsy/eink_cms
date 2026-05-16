@@ -447,12 +447,45 @@ function NumField({ label, value, onChange }: { label: string; value: number; on
 
 function TextFields({ block, onUpdate }: { block: Block; onUpdate: (p: Partial<Block>) => void }) {
   const over = block.maxChars && block.text && block.text.length > block.maxChars;
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  // Wrap the current selection in `marker` on each side; if no selection,
+  // insert a placeholder. Inserts plain markdown so the textarea remains the
+  // source of truth.
+  function wrapSelection(marker: string, placeholder: string) {
+    const ta = textareaRef.current;
+    if (!ta) return;
+    const start = ta.selectionStart ?? 0;
+    const end = ta.selectionEnd ?? 0;
+    const value = block.text ?? "";
+    const selected = value.slice(start, end) || placeholder;
+    const next = value.slice(0, start) + marker + selected + marker + value.slice(end);
+    onUpdate({ text: next });
+    // Restore selection over the inserted text so further toggles work.
+    requestAnimationFrame(() => {
+      if (!textareaRef.current) return;
+      textareaRef.current.focus();
+      const a = start + marker.length;
+      const b = a + selected.length;
+      textareaRef.current.setSelectionRange(a, b);
+    });
+  }
   return (
     <>
       <div>
-        <label className="label">Text {block.maxChars ? `(${block.text?.length ?? 0}/${block.maxChars})` : ""}</label>
-        <textarea className={`input h-24 ${over ? "border-red-500" : ""}`} value={block.text ?? ""} onChange={(e) => onUpdate({ text: e.target.value })} />
-        <p className="text-xs text-neutral-500 mt-1">Use <code>{`{{key}}`}</code> to bind to asset variables.</p>
+        <div className="flex items-center justify-between mb-1">
+          <label className="label !mb-0">Text {block.maxChars ? `(${block.text?.length ?? 0}/${block.maxChars})` : ""}</label>
+          {block.rich && (
+            <div className="flex gap-1">
+              <button type="button" className="btn text-xs font-bold" title="Wrap selection in **bold**" onClick={() => wrapSelection("**", "bold")}>B</button>
+              <button type="button" className="btn text-xs italic" title="Wrap selection in *italic*" onClick={() => wrapSelection("*", "italic")}>I</button>
+            </div>
+          )}
+        </div>
+        <textarea ref={textareaRef} className={`input h-24 ${over ? "border-red-500" : ""}`} value={block.text ?? ""} onChange={(e) => onUpdate({ text: e.target.value })} />
+        <p className="text-xs text-neutral-500 mt-1">
+          Use <code>{`{{key}}`}</code> to bind to asset variables.
+          {block.rich && <> Inline: <code>**bold**</code>, <code>*italic*</code>, <code>***both***</code>.</>}
+        </p>
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
@@ -498,6 +531,7 @@ function TextFields({ block, onUpdate }: { block: Block; onUpdate: (p: Partial<B
         </div>
         <label className="text-sm flex items-center gap-1"><input type="checkbox" checked={!!block.bold} onChange={(e) => onUpdate({ bold: e.target.checked })} /> Bold</label>
         <label className="text-sm flex items-center gap-1"><input type="checkbox" checked={!!block.italic} onChange={(e) => onUpdate({ italic: e.target.checked })} /> Italic</label>
+        <label className="text-sm flex items-center gap-1 col-span-2"><input type="checkbox" checked={!!block.rich} onChange={(e) => onUpdate({ rich: e.target.checked })} /> Rich text (markdown <code>**bold**</code> / <code>*italic*</code>)</label>
       </div>
       {over && <p className="text-xs text-red-400">Over soft char limit.</p>}
     </>

@@ -68,6 +68,10 @@ export type Block = {
   fontFamily?: FontFamily;
   bold?: boolean;
   italic?: boolean;
+  // Treat the text as inline markdown: **bold**, *italic*, ***bold italic***.
+  // When false/undefined, the text renders verbatim. block.bold/italic still
+  // apply as a baseline; inline markers toggle on top of that.
+  rich?: boolean;
   invert?: boolean;
   maxChars?: number;
   letterSpacing?: number;
