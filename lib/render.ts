@@ -372,7 +372,9 @@ function drawDate(ctx: SKRSContext2D, block: Block, fg: string, dctx: DrawCtx) {
 
 function drawLine(ctx: SKRSContext2D, block: Block, fg: string) {
   const t = Math.max(1, block.lineThickness ?? 1);
-  ctx.fillStyle = fg;
+  ctx.fillStyle = block.lineColor === "white" ? "#ffffff"
+                : block.lineColor === "black" ? "#000000"
+                : fg;
   if (block.lineDirection === "vertical") {
     ctx.fillRect(block.x + Math.floor((block.w - t) / 2), block.y, t, block.h);
   } else {
