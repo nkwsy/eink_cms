@@ -1,7 +1,7 @@
 import { createCanvas, loadImage, SKRSContext2D } from "@napi-rs/canvas";
 import path from "node:path";
 import fs from "node:fs/promises";
-import { AssetDoc, Block, DeviceDoc } from "./mongo";
+import { AssetDoc, Block, DeviceDoc, FontFamily } from "./mongo";
 import { encodeBmp1bit, encodeBmp24bit, rgbaTo1Bit, rotateRgba } from "./bmp";
 import { ensureFontsRegistered, fontString } from "./fonts";
 import { renderQr } from "./qr";
@@ -222,14 +222,52 @@ function drawText(ctx: SKRSContext2D, block: Block, fg: string, dctx: DrawCtx) {
   const w = block.w - padding * 2;
   const h = block.h - padding * 2;
   const size = block.fontSize ?? 16;
+  const family = block.fontFamily ?? "mono";
+  const baseBold = !!block.bold;
+  const baseItalic = !!block.italic;
   ctx.fillStyle = fg;
-  ctx.font = fontString(block.fontFamily ?? "mono", size, !!block.bold, !!block.italic);
   ctx.textBaseline = "top";
 
-  const raw = applyVars(block.text, dctx);
-  const lines = wrapText(ctx, raw, w);
   const lineHeight = Math.ceil(size * (block.lineHeight ?? 1.15));
-  const totalH = lines.length * lineHeight;
+
+  const raw = applyVars(block.text, dctx);
+
+  // Rich path: parse **bold** / *italic* inline runs, word-wrap them, then
+  // draw each run with its own font. Plain path keeps the legacy fast path.
+  if (block.rich) {
+    const lines = layoutRichLines(ctx, raw, w, family, size, baseBold, baseItalic);
+    const totalH = lines.length === 0 ? 0 : (lines.length - 1) * lineHeight + size;
+    let startY = y;
+    if (block.vAlign === "middle") startY = y + Math.max(0, Math.floor((h - totalH) / 2));
+    if (block.vAlign === "bottom") startY = y + Math.max(0, h - totalH);
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
+      let lineW = 0;
+      for (const r of line) {
+        ctx.font = fontString(family, size, r.bold, r.italic);
+        lineW += ctx.measureText(r.text).width;
+      }
+      let lx = x;
+      if (block.align === "center") lx = x + Math.max(0, Math.floor((w - lineW) / 2));
+      if (block.align === "right")  lx = x + Math.max(0, w - Math.ceil(lineW));
+      const yy = startY + i * lineHeight;
+      let cx = lx;
+      for (const r of line) {
+        ctx.font = fontString(family, size, r.bold, r.italic);
+        ctx.fillText(r.text, cx, yy);
+        cx += ctx.measureText(r.text).width;
+      }
+    }
+    return;
+  }
+
+  ctx.font = fontString(family, size, baseBold, baseItalic);
+  const lines = wrapText(ctx, raw, w);
+  // The visible text occupies (N-1) line-heights of leading plus one font
+  // size worth of glyph height — using `lines.length * lineHeight` left a
+  // trailing leading band, which made vAlign=bottom look short and
+  // vAlign=middle drift upward.
+  const totalH = lines.length === 0 ? 0 : (lines.length - 1) * lineHeight + size;
   let startY = y;
   if (block.vAlign === "middle") startY = y + Math.max(0, Math.floor((h - totalH) / 2));
   if (block.vAlign === "bottom") startY = y + Math.max(0, h - totalH);
@@ -242,6 +280,80 @@ function drawText(ctx: SKRSContext2D, block: Block, fg: string, dctx: DrawCtx) {
     if (block.align === "right") lx = x + Math.max(0, w - Math.ceil(m.width));
     ctx.fillText(line, lx, startY + i * lineHeight);
   }
+}
+
+// Rich-text inline parser. Recognises **bold**, *italic*, and the
+// combined ***bold italic***. Asterisks not part of a recognised pair are
+// kept as literal characters.
+type RichRun = { text: string; bold: boolean; italic: boolean };
+function parseRich(s: string, baseBold: boolean, baseItalic: boolean): RichRun[] {
+  const out: RichRun[] = [];
+  let bold = baseBold;
+  let italic = baseItalic;
+  let buf = "";
+  const push = () => { if (buf) { out.push({ text: buf, bold, italic }); buf = ""; } };
+  let i = 0;
+  while (i < s.length) {
+    if (s.startsWith("***", i)) { push(); bold = !bold; italic = !italic; i += 3; continue; }
+    if (s.startsWith("**", i))  { push(); bold = !bold;            i += 2; continue; }
+    if (s[i] === "*")           { push(); italic = !italic;         i += 1; continue; }
+    buf += s[i++];
+  }
+  push();
+  return out;
+}
+
+// Tokenise rich runs into per-line lists, word-wrapping at maxWidth.
+// Each output line is an array of runs that, concatenated, make up that line.
+function layoutRichLines(
+  ctx: SKRSContext2D,
+  text: string,
+  maxWidth: number,
+  family: FontFamily,
+  size: number,
+  baseBold: boolean,
+  baseItalic: boolean,
+): RichRun[][] {
+  const lines: RichRun[][] = [];
+  const paragraphs = text.split(/\r?\n/);
+  for (const para of paragraphs) {
+    const runs = parseRich(para, baseBold, baseItalic);
+    // Flatten into atomic tokens (words + spaces) preserving the format
+    // of each segment, so we can word-wrap one word at a time.
+    type Atom = RichRun & { isSpace: boolean };
+    const atoms: Atom[] = [];
+    for (const r of runs) {
+      const parts = r.text.split(/(\s+)/);
+      for (const p of parts) {
+        if (!p) continue;
+        atoms.push({ text: p, bold: r.bold, italic: r.italic, isSpace: /^\s+$/.test(p) });
+      }
+    }
+    let line: RichRun[] = [];
+    let lineW = 0;
+    for (const a of atoms) {
+      ctx.font = fontString(family, size, a.bold, a.italic);
+      const w = ctx.measureText(a.text).width;
+      if (a.isSpace) {
+        // Drop spaces at line start; otherwise extend the line.
+        if (line.length === 0) continue;
+        line.push({ text: a.text, bold: a.bold, italic: a.italic });
+        lineW += w;
+        continue;
+      }
+      if (line.length > 0 && lineW + w > maxWidth) {
+        // Trim a trailing space-run before wrapping.
+        while (line.length && /^\s+$/.test(line[line.length - 1].text)) line.pop();
+        lines.push(line);
+        line = [];
+        lineW = 0;
+      }
+      line.push({ text: a.text, bold: a.bold, italic: a.italic });
+      lineW += w;
+    }
+    if (line.length || paragraphs.length > 1) lines.push(line);
+  }
+  return lines;
 }
 
 function wrapText(ctx: SKRSContext2D, text: string, maxWidth: number): string[] {
