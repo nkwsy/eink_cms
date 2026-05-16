@@ -1,50 +1,50 @@
 import QRCode from "qrcode";
-import { createCanvas, SKRSContext2D } from "@napi-rs/canvas";
+import { SKRSContext2D } from "@napi-rs/canvas";
 
-// Legacy behaviour: border=0 ("no quiet zone baked in"), nearest-neighbor
-// scale to fill the target. We produce a 1-bit module grid then blit it
-// with nearest-neighbor so the QR stays crisp on e-ink.
+// We paint modules directly as filled rectangles at the target scale —
+// no offscreen 1-module-per-pixel canvas + upscale, which used to leave
+// modules looking smeared/striped after the 1-bit threshold pass.
 //
-// Returns a canvas the caller can drawImage into target block.
+// Two styles:
+//   "square" — classic: every active module is a `modulePx × modulePx`
+//              solid square.
+//   "bars"   — port of python-qrcode's HorizontalSquareBarsDrawer:
+//              each active module is a full-width × shrunken-height
+//              bar, vertically centred. Consecutive active modules in a
+//              row merge into a continuous band; rows are separated by
+//              a vertical gap of `(1 - verticalShrink) * modulePx`.
+
+export type QrStyle = "square" | "bars";
 
 export async function renderQr(
   ctx: SKRSContext2D,
   text: string,
   rect: { x: number; y: number; w: number; h: number },
-  opts: { margin?: number; errorLevel?: "L" | "M" | "Q" | "H" } = {}
+  opts: {
+    margin?: number;
+    errorLevel?: "L" | "M" | "Q" | "H";
+    style?: QrStyle;
+    verticalShrink?: number; // bars only; clamped to [0.1, 1]
+  } = {}
 ) {
   if (!text) return;
 
   const errorLevel = opts.errorLevel ?? "L";
   const margin = Math.max(0, opts.margin ?? 0);
-  // Produce the module grid.
+  const style: QrStyle = opts.style ?? "square";
+  const verticalShrink = Math.min(1, Math.max(0.1, opts.verticalShrink ?? 0.8));
+
   const qr = QRCode.create(text, { errorCorrectionLevel: errorLevel });
   const size = qr.modules.size;
   const data = qr.modules.data as Uint8Array | number[];
 
-  // Draw base at 1 module/px to an offscreen, then nearest-neighbor scale
-  // into the target rect.
-  const off = createCanvas(size, size);
-  const octx = off.getContext("2d");
-  // @ts-ignore
-  octx.imageSmoothingEnabled = false;
-  const img = octx.createImageData(size, size);
-  for (let i = 0; i < size * size; i++) {
-    const v = data[i] ? 0 : 255; // 1 = dark module
-    const p = i * 4;
-    img.data[p] = v; img.data[p + 1] = v; img.data[p + 2] = v; img.data[p + 3] = 255;
-  }
-  octx.putImageData(img, 0, 0);
-
-  // Figure out the side length: square, min of (w, h), minus margin*2, then
-  // rounded down to a multiple of the module count so every module is an
-  // equal integer number of output pixels (perfectly crisp).
+  // Round the module size down so every module is an equal integer number
+  // of output pixels — that's what keeps the result crisp after the 1-bit
+  // threshold downstream.
   const maxSide = Math.max(1, Math.min(rect.w, rect.h) - margin * 2);
   const modulePx = Math.max(1, Math.floor(maxSide / size));
   const side = modulePx * size;
 
-  // Right-align + vertically center — this matches the legacy layout where
-  // the QR sits on the right edge of the event box.
   const dx = rect.x + rect.w - side - margin;
   const dy = rect.y + Math.floor((rect.h - side) / 2);
 
@@ -52,7 +52,45 @@ export async function renderQr(
   ctx.fillStyle = "#ffffff";
   ctx.fillRect(dx - margin, dy - margin, side + margin * 2, side + margin * 2);
 
-  // @ts-ignore
-  ctx.imageSmoothingEnabled = false;
-  ctx.drawImage(off, dx, dy, side, side);
+  ctx.fillStyle = "#000000";
+  if (style === "bars") {
+    const barH = Math.max(1, Math.round(modulePx * verticalShrink));
+    const barOffset = Math.floor((modulePx - barH) / 2);
+    for (let y = 0; y < size; y++) {
+      // Coalesce horizontally-adjacent active modules into a single fillRect.
+      let runStart = -1;
+      for (let x = 0; x <= size; x++) {
+        const active = x < size && !!data[y * size + x];
+        if (active && runStart < 0) runStart = x;
+        if (!active && runStart >= 0) {
+          ctx.fillRect(
+            dx + runStart * modulePx,
+            dy + y * modulePx + barOffset,
+            (x - runStart) * modulePx,
+            barH
+          );
+          runStart = -1;
+        }
+      }
+    }
+    return;
+  }
+
+  // "square" style — also coalesce horizontal runs so we issue fewer fills.
+  for (let y = 0; y < size; y++) {
+    let runStart = -1;
+    for (let x = 0; x <= size; x++) {
+      const active = x < size && !!data[y * size + x];
+      if (active && runStart < 0) runStart = x;
+      if (!active && runStart >= 0) {
+        ctx.fillRect(
+          dx + runStart * modulePx,
+          dy + y * modulePx,
+          (x - runStart) * modulePx,
+          modulePx
+        );
+        runStart = -1;
+      }
+    }
+  }
 }

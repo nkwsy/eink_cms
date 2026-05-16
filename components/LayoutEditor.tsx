@@ -505,6 +505,7 @@ function TextFields({ block, onUpdate }: { block: Block; onUpdate: (p: Partial<B
 }
 
 function QrFields({ block, onUpdate }: { block: Block; onUpdate: (p: Partial<Block>) => void }) {
+  const style = block.qrStyle ?? "square";
   return (
     <div className="space-y-2">
       <div>
@@ -525,8 +526,21 @@ function QrFields({ block, onUpdate }: { block: Block; onUpdate: (p: Partial<Blo
             <option value="H">High (30%)</option>
           </select>
         </div>
+        <div>
+          <label className="label">Style</label>
+          <select className="input" value={style} onChange={(e) => onUpdate({ qrStyle: e.target.value as "square" | "bars" })}>
+            <option value="square">Square (classic)</option>
+            <option value="bars">Horizontal bars</option>
+          </select>
+        </div>
+        {style === "bars" && (
+          <div>
+            <label className="label">Vertical shrink ({(block.qrVerticalShrink ?? 0.8).toFixed(2)})</label>
+            <input type="range" min={0.2} max={1} step={0.05} value={block.qrVerticalShrink ?? 0.8} onChange={(e) => onUpdate({ qrVerticalShrink: Number(e.target.value) })} className="w-full" />
+          </div>
+        )}
       </div>
-      <p className="text-xs text-neutral-500">Right-aligned inside the block, integer nearest-neighbor scale. Use a square block for best results.</p>
+      <p className="text-xs text-neutral-500">Right-aligned inside the block, integer module size for crispness. Bars style merges horizontally-adjacent modules — keep error correction ≥ M for reliable scanning.</p>
     </div>
   );
 }
