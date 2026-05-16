@@ -294,7 +294,7 @@ function BlockView({
           <span>📅 {block.dateISO?.slice(0, 10) || "date"}</span>
         </div>
       ) : block.type === "line" ? (
-        <div className={`bg-black ${block.lineDirection === "vertical" ? "w-[2px] h-full mx-auto" : "h-[2px] w-full my-auto"}`} />
+        <div className={`${block.lineColor === "white" ? "bg-white border border-neutral-400" : "bg-black"} ${block.lineDirection === "vertical" ? "w-[2px] h-full mx-auto" : "h-[2px] w-full my-auto"}`} />
       ) : block.type === "shape" ? (
         <div className={`w-full h-full ${block.shapeKind === "filled" ? "bg-black" : "border-2 border-black"}`} />
       ) : (
@@ -590,7 +590,7 @@ function DateFields({ block, onUpdate }: { block: Block; onUpdate: (p: Partial<B
 
 function LineFields({ block, onUpdate }: { block: Block; onUpdate: (p: Partial<Block>) => void }) {
   return (
-    <div className="grid grid-cols-2 gap-2">
+    <div className="grid grid-cols-3 gap-2">
       <div>
         <label className="label">Direction</label>
         <select className="input" value={block.lineDirection ?? "horizontal"} onChange={(e) => onUpdate({ lineDirection: e.target.value as any })}>
@@ -601,6 +601,14 @@ function LineFields({ block, onUpdate }: { block: Block; onUpdate: (p: Partial<B
       <div>
         <label className="label">Thickness (px)</label>
         <input type="number" className="input" value={block.lineThickness ?? 1} onChange={(e) => onUpdate({ lineThickness: Number(e.target.value) })} />
+      </div>
+      <div>
+        <label className="label">Color</label>
+        <select className="input" value={block.lineColor ?? "auto"} onChange={(e) => onUpdate({ lineColor: e.target.value === "auto" ? undefined : (e.target.value as "white" | "black") })}>
+          <option value="auto">Auto (contrast bg)</option>
+          <option value="black">Black</option>
+          <option value="white">White</option>
+        </select>
       </div>
     </div>
   );

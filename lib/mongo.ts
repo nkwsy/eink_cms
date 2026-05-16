@@ -102,6 +102,9 @@ export type Block = {
   // line
   lineDirection?: "horizontal" | "vertical";
   lineThickness?: number;
+  // Explicit colour for line blocks. Falls back to the contrast colour of
+  // the surrounding background when unset.
+  lineColor?: "white" | "black";
 
   // shape
   shapeKind?: "filled" | "outlined";
