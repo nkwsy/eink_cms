@@ -15,7 +15,8 @@ type Props = {
 };
 
 const SNAP = 2;
-const MAX_DISPLAY = 900;
+const MAX_DISPLAY_W = 900;
+const MAX_DISPLAY_H = 700;
 
 export default function LayoutEditor({ width, height, initialLayout, assets, onChange }: Props) {
   const [blocks, setBlocks] = useState<Block[]>(initialLayout);
@@ -26,7 +27,10 @@ export default function LayoutEditor({ width, height, initialLayout, assets, onC
 
   useEffect(() => { onChange(blocks); /* eslint-disable-next-line */ }, [blocks]);
 
-  const scale = useMemo(() => Math.min(1, MAX_DISPLAY / width), [width]);
+  const scale = useMemo(
+    () => Math.min(1, MAX_DISPLAY_W / width, MAX_DISPLAY_H / height),
+    [width, height]
+  );
   const selectedBlock = blocks.find((b) => b.id === selected) ?? null;
 
   function update(id: string, patch: Partial<Block>) {
