@@ -166,17 +166,10 @@ export default function LayoutEditor({ width, height, initialLayout, assets, onC
               targetW={selectedBlock.w}
               targetH={selectedBlock.h}
               onConfirm={(url, w, h) => {
-                // If the user opted into native size, the returned dims differ
-                // from the block's current w/h — snap the block to the image's
-                // native dimensions and lock the aspect so subsequent scaling
-                // stays proportional. Otherwise leave the block size alone.
-                const patch: Partial<Block> = { imageData: url };
-                if (w !== selectedBlock.w || h !== selectedBlock.h) {
-                  patch.w = w;
-                  patch.h = h;
-                  patch.lockAspect = true;
-                }
-                update(selectedBlock.id, patch);
+                // Snap the block to the output dimensions and lock the
+                // aspect so future scaling stays proportional — the user
+                // expects "upload image" to never stretch.
+                update(selectedBlock.id, { imageData: url, w, h, lockAspect: true });
                 setShowImage(false);
               }}
               onCancel={() => setShowImage(false)}

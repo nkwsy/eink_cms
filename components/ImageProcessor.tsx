@@ -35,15 +35,38 @@ export default function ImageProcessor({ targetW, targetH, onConfirm, onCancel }
     const i = new Image();
     i.onload = () => {
       setImg(i);
-      // Default crop matches target aspect, centered
-      const aspect = targetW / targetH;
-      let cw = i.width, ch = i.height;
-      if (cw / ch > aspect) cw = Math.floor(ch * aspect);
-      else ch = Math.floor(cw / aspect);
-      setCrop({ x: Math.floor((i.width - cw) / 2), y: Math.floor((i.height - ch) / 2), w: cw, h: ch });
+      if (useNative) {
+        // Native mode: take the whole image, no crop required.
+        setCrop({ x: 0, y: 0, w: i.width, h: i.height });
+      } else {
+        // Default crop matches target aspect, centered.
+        const aspect = targetW / targetH;
+        let cw = i.width, ch = i.height;
+        if (cw / ch > aspect) cw = Math.floor(ch * aspect);
+        else ch = Math.floor(cw / aspect);
+        setCrop({ x: Math.floor((i.width - cw) / 2), y: Math.floor((i.height - ch) / 2), w: cw, h: ch });
+      }
     };
     i.src = url;
   }
+
+  // When the user toggles "Use native image size" on after the image has
+  // already loaded, expand the crop to the full image. Toggling off goes
+  // back to the target-aspect centered default so the two modes always
+  // produce a sane initial state.
+  useEffect(() => {
+    if (!img) return;
+    if (useNative) {
+      setCrop({ x: 0, y: 0, w: img.width, h: img.height });
+    } else {
+      const aspect = targetW / targetH;
+      let cw = img.width, ch = img.height;
+      if (cw / ch > aspect) cw = Math.floor(ch * aspect);
+      else ch = Math.floor(cw / aspect);
+      setCrop({ x: Math.floor((img.width - cw) / 2), y: Math.floor((img.height - ch) / 2), w: cw, h: ch });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [useNative]);
 
   function startDrag(e: React.MouseEvent<HTMLCanvasElement>) {
     if (!img) return;
