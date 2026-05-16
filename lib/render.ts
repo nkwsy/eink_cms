@@ -269,18 +269,15 @@ function wrapText(ctx: SKRSContext2D, text: string, maxWidth: number): string[] 
 async function drawQrBlock(ctx: SKRSContext2D, block: Block, dctx: DrawCtx, fg: string) {
   const url = applyVars(block.qrUrl ?? block.text ?? "", dctx);
   if (!url) return;
-  // QR always needs white modules around it to scan — paint the block white
-  // first if our context is otherwise black.
-  const parentBg = dctx.defaultBg === "black" ? "black" : "white";
-  if (parentBg === "black") {
-    ctx.fillStyle = "#ffffff";
-    ctx.fillRect(block.x, block.y, block.w, block.h);
-  }
+  // renderQr paints its own quiet zone in the chosen polarity, so we don't
+  // need to pre-fill the block — doing so would overwrite the inverted
+  // (black-bg) QR's intended quiet zone.
   await renderQr(ctx, url, { x: block.x, y: block.y, w: block.w, h: block.h }, {
     margin: block.qrMargin ?? 0,
     errorLevel: block.qrErrorLevel ?? "L",
     style: block.qrStyle ?? "square",
     verticalShrink: block.qrVerticalShrink ?? 0.8,
+    invert: block.qrInvert ?? true,
   });
 }
 

@@ -540,7 +540,11 @@ function QrFields({ block, onUpdate }: { block: Block; onUpdate: (p: Partial<Blo
           </div>
         )}
       </div>
-      <p className="text-xs text-neutral-500">Right-aligned inside the block, integer module size for crispness. Bars style merges horizontally-adjacent modules — keep error correction ≥ M for reliable scanning.</p>
+      <label className="text-sm flex items-center gap-1">
+        <input type="checkbox" checked={block.qrInvert ?? true} onChange={(e) => onUpdate({ qrInvert: e.target.checked })} />
+        Invert (black quiet zone, white modules)
+      </label>
+      <p className="text-xs text-neutral-500">Right-aligned inside the block, integer module size for crispness. Bars style keeps the three finder patterns solid; everywhere else, horizontally-adjacent active modules merge into a bar. Keep error correction ≥ M for reliable scanning.</p>
     </div>
   );
 }

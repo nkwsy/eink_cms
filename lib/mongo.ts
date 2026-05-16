@@ -95,6 +95,10 @@ export type Block = {
   // a row visually merge into a single band.
   qrStyle?: "square" | "bars";
   qrVerticalShrink?: number; // 0..1, only for "bars" style; default 0.8
+  // When unset/true, the QR renders inverted: black quiet zone + white
+  // modules — looks correct against the default black device background
+  // and saves ink. Set explicitly to false for a classic white-bg QR.
+  qrInvert?: boolean;
 
   // date
   dateISO?: string;          // e.g. "2026-05-01" or full ISO
