@@ -191,8 +191,26 @@ function BlockView({
     } else if (mode.current === "resize") {
       let nw = Math.round((origin.current.w + dx) / SNAP) * SNAP;
       let nh = Math.round((origin.current.h + dy) / SNAP) * SNAP;
+      if (block.lockAspect && origin.current.w > 0 && origin.current.h > 0) {
+        // Pick the axis with the larger relative drag and derive the other.
+        const ratio = origin.current.w / origin.current.h;
+        const rw = nw / origin.current.w;
+        const rh = nh / origin.current.h;
+        if (Math.abs(rw - 1) >= Math.abs(rh - 1)) {
+          nh = Math.max(8, Math.round((nw / ratio) / SNAP) * SNAP);
+        } else {
+          nw = Math.max(8, Math.round((nh * ratio) / SNAP) * SNAP);
+        }
+      }
       nw = Math.max(8, Math.min(canvasW - block.x, nw));
       nh = Math.max(8, Math.min(canvasH - block.y, nh));
+      if (block.lockAspect && origin.current.w > 0 && origin.current.h > 0) {
+        // Re-clamp the dependent axis after the bounds clamp above.
+        const ratio = origin.current.w / origin.current.h;
+        if (nw / ratio > canvasH - block.y) nw = Math.floor((canvasH - block.y) * ratio);
+        if (nh * ratio > canvasW - block.x) nh = Math.floor((canvasW - block.x) / ratio);
+        nh = Math.max(8, Math.round((nw / ratio) / SNAP) * SNAP);
+      }
       onUpdate({ w: nw, h: nh });
     }
   }
@@ -312,9 +330,29 @@ function BlockInspector({
       <div className="grid grid-cols-4 gap-2">
         <NumField label="X" value={block.x} onChange={(v) => onUpdate({ x: v })} />
         <NumField label="Y" value={block.y} onChange={(v) => onUpdate({ y: v })} />
-        <NumField label="W" value={block.w} onChange={(v) => onUpdate({ w: v })} />
-        <NumField label="H" value={block.h} onChange={(v) => onUpdate({ h: v })} />
+        <NumField label="W" value={block.w} onChange={(v) => {
+          if (block.lockAspect && block.w > 0) {
+            const ratio = block.w / block.h;
+            onUpdate({ w: v, h: Math.max(1, Math.round(v / ratio)) });
+          } else {
+            onUpdate({ w: v });
+          }
+        }} />
+        <NumField label="H" value={block.h} onChange={(v) => {
+          if (block.lockAspect && block.h > 0) {
+            const ratio = block.w / block.h;
+            onUpdate({ h: v, w: Math.max(1, Math.round(v * ratio)) });
+          } else {
+            onUpdate({ h: v });
+          }
+        }} />
       </div>
+      {(block.type === "image" || block.type === "asset") && (
+        <label className="text-sm flex items-center gap-1">
+          <input type="checkbox" checked={!!block.lockAspect} onChange={(e) => onUpdate({ lockAspect: e.target.checked || undefined })} />
+          Lock aspect ratio
+        </label>
+      )}
 
       {block.type === "text" && <TextFields block={block} onUpdate={onUpdate} />}
       {block.type === "image" && (
