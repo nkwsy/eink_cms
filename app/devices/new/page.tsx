@@ -22,6 +22,7 @@ export default function NewDevicePage() {
   const [height, setHeight] = useState(480);
   const [rotation, setRotation] = useState(0);
   const [bitDepth, setBitDepth] = useState<1 | 24>(1);
+  const [background, setBackground] = useState<"white" | "black">("black");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -40,7 +41,7 @@ export default function NewDevicePage() {
     const res = await fetch("/api/devices", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name, slug, width, height, rotation, bitDepth }),
+      body: JSON.stringify({ name, slug, width, height, rotation, bitDepth, background }),
     });
     setBusy(false);
     if (!res.ok) {
@@ -89,12 +90,21 @@ export default function NewDevicePage() {
             </select>
           </div>
         </div>
-        <div>
-          <label className="label">BMP output format</label>
-          <select className="input" value={bitDepth} onChange={(e) => setBitDepth(Number(e.target.value) === 24 ? 24 : 1)}>
-            <option value={1}>1-bit monochrome (Waveshare default)</option>
-            <option value={24}>24-bit BGR (large greyscale e-ink controllers)</option>
-          </select>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="label">BMP output format</label>
+            <select className="input" value={bitDepth} onChange={(e) => setBitDepth(Number(e.target.value) === 24 ? 24 : 1)}>
+              <option value={1}>1-bit monochrome (Waveshare default)</option>
+              <option value={24}>24-bit BGR (large greyscale e-ink controllers)</option>
+            </select>
+          </div>
+          <div>
+            <label className="label">Background</label>
+            <select className="input" value={background} onChange={(e) => setBackground(e.target.value === "white" ? "white" : "black")}>
+              <option value="black">Black</option>
+              <option value="white">White</option>
+            </select>
+          </div>
         </div>
 
         {err && <p className="text-sm text-red-400">{err}</p>}

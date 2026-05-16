@@ -62,6 +62,28 @@ export default function LayoutEditor({ width, height, initialLayout, assets, onC
     if (!a) return;
     add(newBlock({ type: "asset", assetId, x: 10, y: 10, w: a.width, h: a.height, text: undefined }));
   }
+  function addFullFill() {
+    // Solid block covering the whole canvas, dropped at the back of the
+    // layer stack so it acts as a background.
+    const fill = newBlock({ type: "shape", shapeKind: "filled", x: 0, y: 0, w: width, h: height, text: undefined });
+    setBlocks((prev) => [fill, ...prev]);
+    setSelected(fill.id);
+  }
+  function reorder(id: string, action: "back" | "backward" | "forward" | "front") {
+    setBlocks((prev) => {
+      const i = prev.findIndex((b) => b.id === id);
+      if (i < 0) return prev;
+      const next = prev.slice();
+      const [item] = next.splice(i, 1);
+      const j =
+        action === "back" ? 0 :
+        action === "front" ? next.length :
+        action === "backward" ? Math.max(0, i - 1) :
+        Math.min(next.length, i + 1);
+      next.splice(j, 0, item);
+      return next;
+    });
+  }
 
   return (
     <div className="grid grid-cols-[1fr_360px] gap-4">
@@ -76,6 +98,7 @@ export default function LayoutEditor({ width, height, initialLayout, assets, onC
           <button className="btn" onClick={() => add(PRESET_BLOCKS.lineV())}>+ │ Line</button>
           <button className="btn" onClick={() => add(PRESET_BLOCKS.shape())}>+ □ Box</button>
           <button className="btn" onClick={() => add(PRESET_BLOCKS.fill())}>+ ■ Fill</button>
+          <button className="btn" onClick={addFullFill}>+ ■ Fill screen</button>
           {assets.length > 0 && (
             <select className="input max-w-[200px]" onChange={(e) => { if (e.target.value) addAssetInstance(e.target.value); e.target.value = ""; }} defaultValue="">
               <option value="">+ Asset…</option>
@@ -132,6 +155,7 @@ export default function LayoutEditor({ width, height, initialLayout, assets, onC
             onRemove={() => remove(selectedBlock.id)}
             onDuplicate={() => duplicate(selectedBlock.id)}
             onEditImage={() => setShowImage(true)}
+            onReorder={(action) => reorder(selectedBlock.id, action)}
           />
         )}
 
@@ -191,8 +215,26 @@ function BlockView({
     } else if (mode.current === "resize") {
       let nw = Math.round((origin.current.w + dx) / SNAP) * SNAP;
       let nh = Math.round((origin.current.h + dy) / SNAP) * SNAP;
+      if (block.lockAspect && origin.current.w > 0 && origin.current.h > 0) {
+        // Pick the axis with the larger relative drag and derive the other.
+        const ratio = origin.current.w / origin.current.h;
+        const rw = nw / origin.current.w;
+        const rh = nh / origin.current.h;
+        if (Math.abs(rw - 1) >= Math.abs(rh - 1)) {
+          nh = Math.max(8, Math.round((nw / ratio) / SNAP) * SNAP);
+        } else {
+          nw = Math.max(8, Math.round((nh * ratio) / SNAP) * SNAP);
+        }
+      }
       nw = Math.max(8, Math.min(canvasW - block.x, nw));
       nh = Math.max(8, Math.min(canvasH - block.y, nh));
+      if (block.lockAspect && origin.current.w > 0 && origin.current.h > 0) {
+        // Re-clamp the dependent axis after the bounds clamp above.
+        const ratio = origin.current.w / origin.current.h;
+        if (nw / ratio > canvasH - block.y) nw = Math.floor((canvasH - block.y) * ratio);
+        if (nh * ratio > canvasW - block.x) nh = Math.floor((canvasW - block.x) / ratio);
+        nh = Math.max(8, Math.round((nw / ratio) / SNAP) * SNAP);
+      }
       onUpdate({ w: nw, h: nh });
     }
   }
@@ -276,13 +318,14 @@ function cssFontFamily(family: FontFamily | undefined): string {
 }
 
 function BlockInspector({
-  block, assets, canvasW, canvasH, onUpdate, onRemove, onDuplicate, onEditImage,
+  block, assets, canvasW, canvasH, onUpdate, onRemove, onDuplicate, onEditImage, onReorder,
 }: {
   block: Block; assets: Asset[]; canvasW: number; canvasH: number;
   onUpdate: (p: Partial<Block>) => void;
   onRemove: () => void;
   onDuplicate: () => void;
   onEditImage: () => void;
+  onReorder: (action: "back" | "backward" | "forward" | "front") => void;
 }) {
   const pickedAsset = block.type === "asset" && block.assetId ? assets.find((a) => a._id === block.assetId) : null;
 
@@ -293,6 +336,16 @@ function BlockInspector({
         <div className="flex gap-1">
           <button className="btn text-xs" onClick={onDuplicate}>Duplicate</button>
           <button className="btn btn-danger text-xs" onClick={onRemove}>Delete</button>
+        </div>
+      </div>
+
+      <div>
+        <label className="label">Layer</label>
+        <div className="flex gap-1">
+          <button className="btn text-xs" onClick={() => onReorder("back")} title="Send to back">⤓⤓</button>
+          <button className="btn text-xs" onClick={() => onReorder("backward")} title="Send backward">⤓</button>
+          <button className="btn text-xs" onClick={() => onReorder("forward")} title="Bring forward">⤒</button>
+          <button className="btn text-xs" onClick={() => onReorder("front")} title="Bring to front">⤒⤒</button>
         </div>
       </div>
 
@@ -312,9 +365,29 @@ function BlockInspector({
       <div className="grid grid-cols-4 gap-2">
         <NumField label="X" value={block.x} onChange={(v) => onUpdate({ x: v })} />
         <NumField label="Y" value={block.y} onChange={(v) => onUpdate({ y: v })} />
-        <NumField label="W" value={block.w} onChange={(v) => onUpdate({ w: v })} />
-        <NumField label="H" value={block.h} onChange={(v) => onUpdate({ h: v })} />
+        <NumField label="W" value={block.w} onChange={(v) => {
+          if (block.lockAspect && block.w > 0) {
+            const ratio = block.w / block.h;
+            onUpdate({ w: v, h: Math.max(1, Math.round(v / ratio)) });
+          } else {
+            onUpdate({ w: v });
+          }
+        }} />
+        <NumField label="H" value={block.h} onChange={(v) => {
+          if (block.lockAspect && block.h > 0) {
+            const ratio = block.w / block.h;
+            onUpdate({ h: v, w: Math.max(1, Math.round(v * ratio)) });
+          } else {
+            onUpdate({ h: v });
+          }
+        }} />
       </div>
+      {(block.type === "image" || block.type === "asset") && (
+        <label className="text-sm flex items-center gap-1">
+          <input type="checkbox" checked={!!block.lockAspect} onChange={(e) => onUpdate({ lockAspect: e.target.checked || undefined })} />
+          Lock aspect ratio
+        </label>
+      )}
 
       {block.type === "text" && <TextFields block={block} onUpdate={onUpdate} />}
       {block.type === "image" && (

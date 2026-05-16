@@ -73,6 +73,9 @@ export type Block = {
   letterSpacing?: number;
   lineHeight?: number;       // multiplier, default 1.15
 
+  // Preserve w/h ratio when resizing via the editor handle or W/H inputs.
+  lockAspect?: boolean;
+
   // image
   imageData?: string;        // data: URL (already 1-bit PNG)
 
