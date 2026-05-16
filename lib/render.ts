@@ -36,7 +36,7 @@ export async function renderDevice(
   // @ts-ignore
   ctx.antialias = "none";
 
-  const defaultBg = device.background ?? "white";
+  const defaultBg = device.background ?? "black";
   ctx.fillStyle = defaultBg === "black" ? "#000000" : "#ffffff";
   ctx.fillRect(0, 0, editW, editH);
 

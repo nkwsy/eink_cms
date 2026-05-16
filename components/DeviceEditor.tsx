@@ -19,6 +19,7 @@ export default function DeviceEditor({ device, assets }: Props) {
   const [height, setHeight] = useState(device.height);
   const [rotation, setRotation] = useState(device.rotation ?? 0);
   const [bitDepth, setBitDepth] = useState<1 | 24>(device.bitDepth === 24 ? 24 : 1);
+  const [background, setBackground] = useState<"white" | "black">(device.background === "white" ? "white" : "black");
   const [layout, setLayout] = useState<Block[]>(device.layout ?? []);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<null | Date>(null);
@@ -33,7 +34,7 @@ export default function DeviceEditor({ device, assets }: Props) {
     const res = await fetch(`/api/devices/${device._id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name, slug, width, height, rotation, bitDepth, layout }),
+      body: JSON.stringify({ name, slug, width, height, rotation, bitDepth, background, layout }),
     });
     setSaving(false);
     if (!res.ok) {
@@ -69,7 +70,7 @@ export default function DeviceEditor({ device, assets }: Props) {
       {err && <div className="card border-red-700 text-red-300">{err}</div>}
       {saved && <div className="text-xs text-emerald-400">Saved {saved.toLocaleTimeString()}.</div>}
 
-      <div className="grid grid-cols-5 gap-3">
+      <div className="grid grid-cols-6 gap-3">
         <div><label className="label">Name</label><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></div>
         <div><label className="label">Slug</label><input className="input" value={slug} onChange={(e) => setSlug(e.target.value)} /></div>
         <div><label className="label">Width × Height</label>
@@ -90,6 +91,12 @@ export default function DeviceEditor({ device, assets }: Props) {
           <select className="input" value={bitDepth} onChange={(e) => setBitDepth(Number(e.target.value) === 24 ? 24 : 1)}>
             <option value={1}>1-bit mono</option>
             <option value={24}>24-bit BGR</option>
+          </select>
+        </div>
+        <div><label className="label">Background</label>
+          <select className="input" value={background} onChange={(e) => setBackground(e.target.value === "white" ? "white" : "black")}>
+            <option value="black">Black</option>
+            <option value="white">White</option>
           </select>
         </div>
       </div>
