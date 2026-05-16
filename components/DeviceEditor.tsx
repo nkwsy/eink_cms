@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { Block, DeviceDoc, AssetDoc } from "@/lib/mongo";
+import { editorDims } from "@/lib/dims";
 import LayoutEditor from "./LayoutEditor";
 
 type Props = {
@@ -86,11 +87,20 @@ export default function DeviceEditor({ device, assets }: Props) {
         </div>
       </div>
 
-      <div className="grid grid-cols-[1fr_360px] gap-4">
+      {(() => {
+        const { w: editW, h: editH } = editorDims({ width, height, rotation });
+        const rotated = rotation === 90 || rotation === 270;
+        return (
+        <div className="grid grid-cols-[1fr_360px] gap-4">
         <div>
+          {rotated && (
+            <p className="text-xs text-neutral-500 mb-2">
+              Rotated mount ({rotation}°): editing at {editW}×{editH}; saved image is rotated to the device's native {width}×{height}.
+            </p>
+          )}
           <LayoutEditor
-            width={width}
-            height={height}
+            width={editW}
+            height={editH}
             initialLayout={layout}
             assets={assets}
             onChange={setLayout}
@@ -99,14 +109,14 @@ export default function DeviceEditor({ device, assets }: Props) {
         <aside className="space-y-3">
           <div className="card">
             <h4 className="font-medium mb-2">Rendered preview (1-bit)</h4>
-            <div className="bg-white border border-neutral-700">
+            <div className="bg-white border border-neutral-700 max-h-[420px] overflow-hidden flex items-center justify-center">
               <img
                 src={`/api/devices/${device._id}/render?format=png&t=${previewBust}`}
                 alt=""
-                className="w-full h-auto pixelated"
+                className="max-w-full max-h-[420px] w-auto h-auto pixelated object-contain"
               />
             </div>
-            <p className="text-xs text-neutral-500 mt-2">Shows the actual 1-bit output. Click <em>Save</em> to refresh.</p>
+            <p className="text-xs text-neutral-500 mt-2">Shows the actual 1-bit output ({width}×{height}). Click <em>Save</em> to refresh.</p>
             <button className="btn w-full mt-2" onClick={() => setPreviewBust(Date.now())}>Refresh preview</button>
           </div>
 
@@ -120,6 +130,8 @@ export default function DeviceEditor({ device, assets }: Props) {
           </div>
         </aside>
       </div>
+        );
+      })()}
     </div>
   );
 }
