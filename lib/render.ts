@@ -2,7 +2,7 @@ import { createCanvas, loadImage, SKRSContext2D } from "@napi-rs/canvas";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { AssetDoc, Block, DeviceDoc } from "./mongo";
-import { encodeBmp1bit, rgbaTo1Bit } from "./bmp";
+import { encodeBmp1bit, encodeBmp24bit, rgbaTo1Bit, rotateRgba } from "./bmp";
 import { ensureFontsRegistered, fontString } from "./fonts";
 import { renderQr } from "./qr";
 import { abbreviateDay, dayOfMonth, formatTimeParts, monthName, parseFlexible } from "./dates";
@@ -53,15 +53,20 @@ export async function renderDevice(
   let outW = editW;
   let outH = editH;
   let outPixels = pixels1;
+  let outRgba: Uint8ClampedArray = rgba;
   if (device.rotation) {
     const r = rotatePixels(pixels1, editW, editH, device.rotation);
     outPixels = r.pixels;
     outW = r.width;
     outH = r.height;
+    const rr = rotateRgba(rgba, editW, editH, device.rotation);
+    outRgba = rr.rgba;
   }
 
-  const bmp = encodeBmp1bit(outW, outH, outPixels);
-  return { pixels1: outPixels, rgba, width: outW, height: outH, bmp };
+  const bmp = device.bitDepth === 24
+    ? encodeBmp24bit(outW, outH, outRgba)
+    : encodeBmp1bit(outW, outH, outPixels);
+  return { pixels1: outPixels, rgba: outRgba, width: outW, height: outH, bmp };
 }
 
 

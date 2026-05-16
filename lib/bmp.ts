@@ -60,6 +60,93 @@ export function encodeBmp1bit(width: number, height: number, pixels: Uint8Array)
   return buf;
 }
 
+// 24-bit BGR BMP encoder.
+// Input: width, height, and an RGBA buffer (4 bytes/pixel) matching canvas output.
+// Some e-ink controllers (e.g. the 28" 3840×1080 panel) refuse 1-bpp BMPs and
+// expect a 24-bpp Windows V3 BMP even when the source is monochrome — they read
+// the BGR channels and threshold internally.
+export function encodeBmp24bit(width: number, height: number, rgba: Uint8Array | Uint8ClampedArray): Buffer {
+  if (rgba.length !== width * height * 4) {
+    throw new Error(`rgba buffer length ${rgba.length} != ${width}*${height}*4`);
+  }
+
+  const rowBytes = width * 3;
+  const rowStride = (rowBytes + 3) & ~3;
+  const imageSize = rowStride * height;
+
+  const fileHeaderSize = 14;
+  const dibHeaderSize = 40;
+  const pixelOffset = fileHeaderSize + dibHeaderSize;
+  const fileSize = pixelOffset + imageSize;
+
+  const buf = Buffer.alloc(fileSize);
+
+  buf.write("BM", 0, "ascii");
+  buf.writeUInt32LE(fileSize, 2);
+  buf.writeUInt32LE(0, 6);
+  buf.writeUInt32LE(pixelOffset, 10);
+
+  buf.writeUInt32LE(dibHeaderSize, 14);
+  buf.writeInt32LE(width, 18);
+  buf.writeInt32LE(height, 22); // positive = bottom-up
+  buf.writeUInt16LE(1, 26);     // planes
+  buf.writeUInt16LE(24, 28);    // bits per pixel
+  buf.writeUInt32LE(0, 30);     // compression = BI_RGB
+  buf.writeUInt32LE(imageSize, 34);
+  buf.writeInt32LE(3779, 38);   // x pixels/meter (~96dpi to match sample)
+  buf.writeInt32LE(3779, 42);
+  buf.writeUInt32LE(0, 46);     // colors used
+  buf.writeUInt32LE(0, 50);     // important colors
+
+  // Pixel data — bottom-up, BGR
+  for (let y = 0; y < height; y++) {
+    const srcRow = (height - 1 - y) * width * 4;
+    const dstRow = pixelOffset + y * rowStride;
+    for (let x = 0; x < width; x++) {
+      const s = srcRow + x * 4;
+      const d = dstRow + x * 3;
+      // Treat transparent pixels as white.
+      if (rgba[s + 3] === 0) {
+        buf[d] = 255; buf[d + 1] = 255; buf[d + 2] = 255;
+      } else {
+        buf[d]     = rgba[s + 2]; // B
+        buf[d + 1] = rgba[s + 1]; // G
+        buf[d + 2] = rgba[s];     // R
+      }
+    }
+  }
+  return buf;
+}
+
+// Rotate an RGBA buffer (4 bytes/pixel) by 90/180/270 degrees. Returns
+// new buffer + dims. deg=0 returns the input unchanged.
+export function rotateRgba(rgba: Uint8ClampedArray, w: number, h: number, deg: number): { rgba: Uint8ClampedArray; width: number; height: number } {
+  if (!deg || deg % 360 === 0) return { rgba, width: w, height: h };
+  if (deg === 180) {
+    const out = new Uint8ClampedArray(rgba.length);
+    for (let y = 0; y < h; y++) {
+      for (let x = 0; x < w; x++) {
+        const src = (y * w + x) * 4;
+        const dst = ((h - 1 - y) * w + (w - 1 - x)) * 4;
+        out[dst] = rgba[src]; out[dst + 1] = rgba[src + 1]; out[dst + 2] = rgba[src + 2]; out[dst + 3] = rgba[src + 3];
+      }
+    }
+    return { rgba: out, width: w, height: h };
+  }
+  const nw = h, nh = w;
+  const out = new Uint8ClampedArray(rgba.length);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const src = (y * w + x) * 4;
+      const dst = deg === 90
+        ? (x * nw + (h - 1 - y)) * 4
+        : ((w - 1 - x) * nw + y) * 4;
+      out[dst] = rgba[src]; out[dst + 1] = rgba[src + 1]; out[dst + 2] = rgba[src + 2]; out[dst + 3] = rgba[src + 3];
+    }
+  }
+  return { rgba: out, width: nw, height: nh };
+}
+
 // Convert RGBA canvas pixels to a 1-bit buffer (1 = white).
 // mode: "threshold" does flat cutoff; "dither" does Floyd–Steinberg.
 export function rgbaTo1Bit(
