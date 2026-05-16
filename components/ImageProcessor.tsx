@@ -23,6 +23,10 @@ export default function ImageProcessor({ targetW, targetH, onConfirm, onCancel }
   const [drag, setDrag] = useState<{ startX: number; startY: number } | null>(null);
 
   useEffect(() => { redraw(); }, [img, crop, threshold, dither, invert, useNative, faithful]);
+  // Open the file picker as soon as the dialog mounts so "Upload image" feels
+  // like a single-click action instead of a "click, then hunt for the tiny
+  // input" two-step.
+  useEffect(() => { fileRef.current?.click(); }, []);
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -127,7 +131,10 @@ export default function ImageProcessor({ targetW, targetH, onConfirm, onCancel }
 
   return (
     <div className="space-y-3">
-      <input ref={fileRef} type="file" accept="image/*" onChange={onFile} className="text-sm" />
+      <input ref={fileRef} type="file" accept="image/*" onChange={onFile} className="hidden" />
+      <button type="button" className="btn w-full" onClick={() => fileRef.current?.click()}>
+        {img ? "Choose a different image…" : "Choose image file…"}
+      </button>
       <div className="flex items-center justify-between gap-3">
         <p className="text-xs text-neutral-400 flex-1">
           Drag on the source image to reselect a crop.{" "}
