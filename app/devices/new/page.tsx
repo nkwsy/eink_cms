@@ -9,6 +9,7 @@ const PRESETS = [
   { name: "Waveshare 2.13\" (250×122)", width: 250, height: 122 },
   { name: "Waveshare 7.5\" HD (880×528)", width: 880, height: 528 },
   { name: "Waveshare 10.3\" (1872×1404)", width: 1872, height: 1404 },
+  { name: "28\" 16-bit greyscale (3840×1080)", width: 3840, height: 1080 },
   { name: "Custom", width: 0, height: 0 },
 ];
 
