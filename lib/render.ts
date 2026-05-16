@@ -6,6 +6,7 @@ import { encodeBmp1bit, rgbaTo1Bit } from "./bmp";
 import { ensureFontsRegistered, fontString } from "./fonts";
 import { renderQr } from "./qr";
 import { abbreviateDay, dayOfMonth, formatTimeParts, monthName, parseFlexible } from "./dates";
+import { editorDims } from "./dims";
 
 // ---- Rendering pipeline ----
 // 1) Draw everything onto an RGBA canvas at device pixel size.
@@ -23,7 +24,12 @@ export async function renderDevice(
   opts: RenderOptions = {}
 ): Promise<{ pixels1: Uint8Array; rgba: Uint8ClampedArray; width: number; height: number; bmp: Buffer }> {
   ensureFontsRegistered();
-  const canvas = createCanvas(device.width, device.height);
+  // Layout is authored in the editor's visual frame: when the device is
+  // mounted with a 90°/270° rotation, the user designs at the swapped
+  // dimensions. We draw the canvas at the editor frame, then rotate the
+  // pixels so the device buffer matches the stored native width/height.
+  const { w: editW, h: editH } = editorDims(device);
+  const canvas = createCanvas(editW, editH);
   const ctx = canvas.getContext("2d") as SKRSContext2D;
   // @ts-ignore
   ctx.imageSmoothingEnabled = false;
@@ -32,23 +38,23 @@ export async function renderDevice(
 
   const defaultBg = device.background ?? "white";
   ctx.fillStyle = defaultBg === "black" ? "#000000" : "#ffffff";
-  ctx.fillRect(0, 0, device.width, device.height);
+  ctx.fillRect(0, 0, editW, editH);
 
   for (const block of device.layout) {
     await drawBlock(ctx, block, assetMap, { defaultBg });
   }
 
-  const rgba = ctx.getImageData(0, 0, device.width, device.height).data;
-  const pixels1 = rgbaTo1Bit(rgba, device.width, device.height, {
+  const rgba = ctx.getImageData(0, 0, editW, editH).data;
+  const pixels1 = rgbaTo1Bit(rgba, editW, editH, {
     mode: opts.dither ? "dither" : "threshold",
     threshold: opts.threshold ?? 160,
   });
 
-  let outW = device.width;
-  let outH = device.height;
+  let outW = editW;
+  let outH = editH;
   let outPixels = pixels1;
   if (device.rotation) {
-    const r = rotatePixels(pixels1, device.width, device.height, device.rotation);
+    const r = rotatePixels(pixels1, editW, editH, device.rotation);
     outPixels = r.pixels;
     outW = r.width;
     outH = r.height;
@@ -57,6 +63,7 @@ export async function renderDevice(
   const bmp = encodeBmp1bit(outW, outH, outPixels);
   return { pixels1: outPixels, rgba, width: outW, height: outH, bmp };
 }
+
 
 function rotatePixels(pixels: Uint8Array, w: number, h: number, deg: number) {
   if (deg === 180) {
