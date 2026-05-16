@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
   const width = Number(body.width ?? 800);
   const height = Number(body.height ?? 480);
   const rotation = Number(body.rotation ?? 0) as 0 | 90 | 180 | 270;
+  const bitDepth = (Number(body.bitDepth) === 24 ? 24 : 1) as 1 | 24;
   if (!slug) return NextResponse.json({ error: "slug required" }, { status: 400 });
 
   const existing = await col.findOne({ slug });
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
 
   const now = new Date();
   const doc = {
-    slug, name, width, height, rotation,
+    slug, name, width, height, rotation, bitDepth,
     layout: body.layout ?? [],
     createdAt: now, updatedAt: now,
   };

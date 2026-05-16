@@ -15,7 +15,7 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
   if (!doc) return NextResponse.json({ error: "not found" }, { status: 404 });
 
   const assetMap = await loadAssetMap(doc);
-  const { bmp, pixels1, width, height } = await renderDevice(doc, assetMap, { dither, threshold });
+  const { bmp, pixels1, rgba, width, height } = await renderDevice(doc, assetMap, { dither, threshold });
 
   if (format === "bmp") {
     return new NextResponse(new Uint8Array(bmp), {
@@ -23,13 +23,18 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
     });
   }
 
-  // Render the 1-bit buffer back to a PNG so the preview matches the device output byte-for-byte.
+  // Preview matches the actual device output: for 1-bit devices show the
+  // thresholded buffer; for 24-bit devices show the full-colour rgba.
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
   const img = ctx.createImageData(width, height);
-  for (let i = 0, p = 0; i < pixels1.length; i++, p += 4) {
-    const v = pixels1[i] ? 255 : 0;
-    img.data[p] = v; img.data[p + 1] = v; img.data[p + 2] = v; img.data[p + 3] = 255;
+  if (doc.bitDepth === 24) {
+    img.data.set(rgba);
+  } else {
+    for (let i = 0, p = 0; i < pixels1.length; i++, p += 4) {
+      const v = pixels1[i] ? 255 : 0;
+      img.data[p] = v; img.data[p + 1] = v; img.data[p + 2] = v; img.data[p + 3] = 255;
+    }
   }
   ctx.putImageData(img, 0, 0);
   const png = await canvas.encode("png");

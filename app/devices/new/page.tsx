@@ -3,14 +3,14 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 const PRESETS = [
-  { name: "Waveshare 7.5\" (800×480)", width: 800, height: 480 },
-  { name: "Waveshare 4.2\" (400×300)", width: 400, height: 300 },
-  { name: "Waveshare 2.9\" (296×128)", width: 296, height: 128 },
-  { name: "Waveshare 2.13\" (250×122)", width: 250, height: 122 },
-  { name: "Waveshare 7.5\" HD (880×528)", width: 880, height: 528 },
-  { name: "Waveshare 10.3\" (1872×1404)", width: 1872, height: 1404 },
-  { name: "28\" 16-bit greyscale (3840×1080)", width: 3840, height: 1080 },
-  { name: "Custom", width: 0, height: 0 },
+  { name: "Waveshare 7.5\" (800×480)", width: 800, height: 480, bitDepth: 1 },
+  { name: "Waveshare 4.2\" (400×300)", width: 400, height: 300, bitDepth: 1 },
+  { name: "Waveshare 2.9\" (296×128)", width: 296, height: 128, bitDepth: 1 },
+  { name: "Waveshare 2.13\" (250×122)", width: 250, height: 122, bitDepth: 1 },
+  { name: "Waveshare 7.5\" HD (880×528)", width: 880, height: 528, bitDepth: 1 },
+  { name: "Waveshare 10.3\" (1872×1404)", width: 1872, height: 1404, bitDepth: 1 },
+  { name: "28\" greyscale 24-bpp (3840×1080)", width: 3840, height: 1080, bitDepth: 24 },
+  { name: "Custom", width: 0, height: 0, bitDepth: 1 },
 ];
 
 export default function NewDevicePage() {
@@ -21,6 +21,7 @@ export default function NewDevicePage() {
   const [width, setWidth] = useState(800);
   const [height, setHeight] = useState(480);
   const [rotation, setRotation] = useState(0);
+  const [bitDepth, setBitDepth] = useState<1 | 24>(1);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
@@ -29,6 +30,7 @@ export default function NewDevicePage() {
     const p = PRESETS[i];
     if (p.width) setWidth(p.width);
     if (p.height) setHeight(p.height);
+    setBitDepth(p.bitDepth === 24 ? 24 : 1);
   };
 
   async function submit(e: React.FormEvent) {
@@ -38,7 +40,7 @@ export default function NewDevicePage() {
     const res = await fetch("/api/devices", {
       method: "POST",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name, slug, width, height, rotation }),
+      body: JSON.stringify({ name, slug, width, height, rotation, bitDepth }),
     });
     setBusy(false);
     if (!res.ok) {
@@ -86,6 +88,13 @@ export default function NewDevicePage() {
               <option value={270}>270°</option>
             </select>
           </div>
+        </div>
+        <div>
+          <label className="label">BMP output format</label>
+          <select className="input" value={bitDepth} onChange={(e) => setBitDepth(Number(e.target.value) === 24 ? 24 : 1)}>
+            <option value={1}>1-bit monochrome (Waveshare default)</option>
+            <option value={24}>24-bit BGR (large greyscale e-ink controllers)</option>
+          </select>
         </div>
 
         {err && <p className="text-sm text-red-400">{err}</p>}

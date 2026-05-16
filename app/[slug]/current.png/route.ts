@@ -9,13 +9,17 @@ export async function GET(_req: NextRequest, { params }: { params: { slug: strin
   const doc = await col.findOne({ slug: params.slug });
   if (!doc) return new NextResponse("not found", { status: 404 });
   const assetMap = await loadAssetMap(doc);
-  const { pixels1, width, height } = await renderDevice(doc, assetMap);
+  const { pixels1, rgba, width, height } = await renderDevice(doc, assetMap);
   const canvas = createCanvas(width, height);
   const ctx = canvas.getContext("2d");
   const img = ctx.createImageData(width, height);
-  for (let i = 0, p = 0; i < pixels1.length; i++, p += 4) {
-    const v = pixels1[i] ? 255 : 0;
-    img.data[p] = v; img.data[p + 1] = v; img.data[p + 2] = v; img.data[p + 3] = 255;
+  if (doc.bitDepth === 24) {
+    img.data.set(rgba);
+  } else {
+    for (let i = 0, p = 0; i < pixels1.length; i++, p += 4) {
+      const v = pixels1[i] ? 255 : 0;
+      img.data[p] = v; img.data[p + 1] = v; img.data[p + 2] = v; img.data[p + 3] = 255;
+    }
   }
   ctx.putImageData(img, 0, 0);
   const png = await canvas.encode("png");

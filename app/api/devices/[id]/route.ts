@@ -18,6 +18,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.width != null) update.width = Number(body.width);
   if (body.height != null) update.height = Number(body.height);
   if (body.rotation != null) update.rotation = Number(body.rotation);
+  if (body.bitDepth != null) update.bitDepth = Number(body.bitDepth) === 24 ? 24 : 1;
   if (body.layout != null) update.layout = body.layout;
   if (body.background != null) update.background = body.background === "black" ? "black" : "white";
 

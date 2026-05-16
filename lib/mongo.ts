@@ -119,6 +119,10 @@ export type DeviceDoc = {
   height: number;
   rotation?: 0 | 90 | 180 | 270;
   background?: "white" | "black";
+  // Output BMP bit depth. 1 = monochrome (default, works on most Waveshare
+  // panels). 24 = 24-bit BGR BMP for controllers that refuse 1-bpp input
+  // (e.g. the 28" 3840×1080 panel).
+  bitDepth?: 1 | 24;
   layout: Block[];
   updatedAt: Date;
   createdAt: Date;
