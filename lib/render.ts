@@ -279,6 +279,8 @@ async function drawQrBlock(ctx: SKRSContext2D, block: Block, dctx: DrawCtx, fg: 
   await renderQr(ctx, url, { x: block.x, y: block.y, w: block.w, h: block.h }, {
     margin: block.qrMargin ?? 0,
     errorLevel: block.qrErrorLevel ?? "L",
+    style: block.qrStyle ?? "square",
+    verticalShrink: block.qrVerticalShrink ?? 0.8,
   });
 }
 

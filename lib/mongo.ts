@@ -88,6 +88,13 @@ export type Block = {
   qrUrl?: string;
   qrMargin?: number;         // pixels of quiet zone outside the QR within the block
   qrErrorLevel?: "L" | "M" | "Q" | "H";
+  // Module style. "square" = classic filled squares per module (default).
+  // "bars" = horizontal-bar style modelled on python-qrcode's
+  // HorizontalSquareBarsDrawer: each active module is drawn as a
+  // full-width, vertically-shrunken bar so consecutive active modules in
+  // a row visually merge into a single band.
+  qrStyle?: "square" | "bars";
+  qrVerticalShrink?: number; // 0..1, only for "bars" style; default 0.8
 
   // date
   dateISO?: string;          // e.g. "2026-05-01" or full ISO
