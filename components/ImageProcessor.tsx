@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 type Props = {
   targetW: number;
   targetH: number;
-  onConfirm: (dataUrl: string) => void;
+  onConfirm: (dataUrl: string, width: number, height: number) => void;
   onCancel: () => void;
 };
 
@@ -18,9 +18,11 @@ export default function ImageProcessor({ targetW, targetH, onConfirm, onCancel }
   const [threshold, setThreshold] = useState(128);
   const [dither, setDither] = useState(false);
   const [invert, setInvert] = useState(false);
+  const [useNative, setUseNative] = useState(false);
+  const [faithful, setFaithful] = useState(false);
   const [drag, setDrag] = useState<{ startX: number; startY: number } | null>(null);
 
-  useEffect(() => { redraw(); }, [img, crop, threshold, dither, invert]);
+  useEffect(() => { redraw(); }, [img, crop, threshold, dither, invert, useNative, faithful]);
 
   function onFile(e: React.ChangeEvent<HTMLInputElement>) {
     const f = e.target.files?.[0];
@@ -55,11 +57,14 @@ export default function ImageProcessor({ targetW, targetH, onConfirm, onCancel }
     const rect = canvas.getBoundingClientRect();
     const sx = (e.clientX - rect.left) * (img.width / rect.width);
     const sy = (e.clientY - rect.top) * (img.height / rect.height);
-    const aspect = targetW / targetH;
     let w = Math.abs(sx - drag.startX);
     let h = Math.abs(sy - drag.startY);
-    // Lock aspect
-    if (w / h > aspect) w = h * aspect; else h = w / aspect;
+    // When using target dims, lock the crop to that aspect. In native
+    // mode the user picks any rectangle and the output matches it 1:1.
+    if (!useNative) {
+      const aspect = targetW / targetH;
+      if (w / h > aspect) w = h * aspect; else h = w / aspect;
+    }
     const x = Math.min(drag.startX, sx);
     const y = Math.min(drag.startY, sy);
     setCrop({ x, y, w, h });
@@ -83,19 +88,33 @@ export default function ImageProcessor({ targetW, targetH, onConfirm, onCancel }
       sctx.strokeRect(crop.x * scale, crop.y * scale, crop.w * scale, crop.h * scale);
     }
 
-    // Preview: extract crop → resize → threshold
+    // Preview: extract crop → resize (target mode) or 1:1 (native mode) → threshold
     const p = previewRef.current;
-    p.width = targetW;
-    p.height = targetH;
+    const outW = useNative
+      ? Math.max(1, Math.round(crop?.w ?? targetW))
+      : targetW;
+    const outH = useNative
+      ? Math.max(1, Math.round(crop?.h ?? targetH))
+      : targetH;
+    p.width = outW;
+    p.height = outH;
     const pctx = p.getContext("2d")!;
     pctx.imageSmoothingEnabled = false;
     pctx.fillStyle = "#ffffff";
-    pctx.fillRect(0, 0, targetW, targetH);
+    pctx.fillRect(0, 0, outW, outH);
     if (!crop || crop.w < 2 || crop.h < 2) return;
-    pctx.drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, targetW, targetH);
-    const imageData = pctx.getImageData(0, 0, targetW, targetH);
+    pctx.drawImage(img, crop.x, crop.y, crop.w, crop.h, 0, 0, outW, outH);
+    if (faithful) {
+      // Faithful mode: source is already prepared (true B/W or greyscale
+      // optimised for the panel). Skip threshold/dither/invert so the
+      // output PNG matches the source pixels byte-for-byte after the
+      // crop+optional-resize. The downstream 1-bit BMP encoder will treat
+      // pixels ≥ its threshold as white, so true B/W comes through intact.
+      return;
+    }
+    const imageData = pctx.getImageData(0, 0, outW, outH);
     const d = imageData.data;
-    if (dither) floydSteinberg(d, targetW, targetH, threshold, invert);
+    if (dither) floydSteinberg(d, outW, outH, threshold, invert);
     else thresholdApply(d, threshold, invert);
     pctx.putImageData(imageData, 0, 0);
   }
@@ -103,13 +122,28 @@ export default function ImageProcessor({ targetW, targetH, onConfirm, onCancel }
   function confirm() {
     if (!previewRef.current) return;
     const url = previewRef.current.toDataURL("image/png");
-    onConfirm(url);
+    onConfirm(url, previewRef.current.width, previewRef.current.height);
   }
 
   return (
     <div className="space-y-3">
       <input ref={fileRef} type="file" accept="image/*" onChange={onFile} className="text-sm" />
-      <p className="text-xs text-neutral-400">Drag on the source image to reselect a crop. Aspect locked to {targetW}×{targetH}.</p>
+      <div className="flex items-center justify-between gap-3">
+        <p className="text-xs text-neutral-400 flex-1">
+          Drag on the source image to reselect a crop.{" "}
+          {useNative
+            ? "Native mode: crop any aspect, block resizes to match."
+            : `Aspect locked to ${targetW}×${targetH}.`}
+        </p>
+        <label className="text-xs flex items-center gap-1 shrink-0">
+          <input type="checkbox" checked={useNative} onChange={(e) => setUseNative(e.target.checked)} />
+          Use native image size
+        </label>
+        <label className="text-xs flex items-center gap-1 shrink-0" title="Skip threshold/dither — passthrough for images already prepared for e-ink (true B/W BMP/PNG/JPG).">
+          <input type="checkbox" checked={faithful} onChange={(e) => setFaithful(e.target.checked)} />
+          Faithful (passthrough)
+        </label>
+      </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <div className="text-xs text-neutral-400 mb-1">Source</div>
@@ -123,21 +157,23 @@ export default function ImageProcessor({ targetW, targetH, onConfirm, onCancel }
           />
         </div>
         <div>
-          <div className="text-xs text-neutral-400 mb-1">Preview ({targetW}×{targetH}, 1-bit)</div>
-          <canvas ref={previewRef} className="border border-neutral-700 bg-white pixelated" style={{ width: Math.min(300, targetW) + "px" }} />
+          <div className="text-xs text-neutral-400 mb-1">
+            Preview ({useNative ? `${Math.round(crop?.w ?? 0)}×${Math.round(crop?.h ?? 0)}` : `${targetW}×${targetH}`}, {faithful ? "passthrough" : "1-bit"})
+          </div>
+          <canvas ref={previewRef} className="border border-neutral-700 bg-white pixelated" style={{ width: Math.min(300, useNative ? Math.round(crop?.w ?? targetW) : targetW) + "px" }} />
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className={`grid grid-cols-3 gap-3 ${faithful ? "opacity-40 pointer-events-none" : ""}`}>
         <label className="text-sm">
           <span className="label">Threshold: {threshold}</span>
-          <input type="range" min={1} max={254} value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} className="w-full" />
+          <input type="range" min={1} max={254} value={threshold} onChange={(e) => setThreshold(Number(e.target.value))} className="w-full" disabled={faithful} />
         </label>
         <label className="text-sm flex items-center gap-2 mt-5">
-          <input type="checkbox" checked={dither} onChange={(e) => setDither(e.target.checked)} />
+          <input type="checkbox" checked={dither} onChange={(e) => setDither(e.target.checked)} disabled={faithful} />
           Floyd–Steinberg dither
         </label>
         <label className="text-sm flex items-center gap-2 mt-5">
-          <input type="checkbox" checked={invert} onChange={(e) => setInvert(e.target.checked)} />
+          <input type="checkbox" checked={invert} onChange={(e) => setInvert(e.target.checked)} disabled={faithful} />
           Invert
         </label>
       </div>

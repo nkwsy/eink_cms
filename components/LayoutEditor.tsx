@@ -165,7 +165,20 @@ export default function LayoutEditor({ width, height, initialLayout, assets, onC
             <ImageProcessor
               targetW={selectedBlock.w}
               targetH={selectedBlock.h}
-              onConfirm={(url) => { update(selectedBlock.id, { imageData: url }); setShowImage(false); }}
+              onConfirm={(url, w, h) => {
+                // If the user opted into native size, the returned dims differ
+                // from the block's current w/h — snap the block to the image's
+                // native dimensions and lock the aspect so subsequent scaling
+                // stays proportional. Otherwise leave the block size alone.
+                const patch: Partial<Block> = { imageData: url };
+                if (w !== selectedBlock.w || h !== selectedBlock.h) {
+                  patch.w = w;
+                  patch.h = h;
+                  patch.lockAspect = true;
+                }
+                update(selectedBlock.id, patch);
+                setShowImage(false);
+              }}
               onCancel={() => setShowImage(false)}
             />
           </div>
