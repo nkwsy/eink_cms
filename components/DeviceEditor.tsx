@@ -9,9 +9,10 @@ import LayoutEditor from "./LayoutEditor";
 type Props = {
   device: any;
   assets: any[];
+  plugins?: any[];
 };
 
-export default function DeviceEditor({ device, assets }: Props) {
+export default function DeviceEditor({ device, assets, plugins = [] }: Props) {
   const router = useRouter();
   const [name, setName] = useState(device.name);
   const [slug, setSlug] = useState(device.slug);
@@ -20,7 +21,12 @@ export default function DeviceEditor({ device, assets }: Props) {
   const [rotation, setRotation] = useState(device.rotation ?? 0);
   const [bitDepth, setBitDepth] = useState<1 | 24>(device.bitDepth === 24 ? 24 : 1);
   const [background, setBackground] = useState<"white" | "black">(device.background === "white" ? "white" : "black");
-  const [layout, setLayout] = useState<Block[]>(device.layout ?? []);
+  // We edit a "working" layout that the user sees. If a draft exists, we
+  // load that — otherwise the live layout. Saving writes back to draft
+  // when one exists or the user has clicked "Edit as draft", else live.
+  const initialIsDraft = Array.isArray(device.draftLayout) && device.draftLayout.length > 0;
+  const [isDraftMode, setIsDraftMode] = useState<boolean>(initialIsDraft);
+  const [layout, setLayout] = useState<Block[]>(initialIsDraft ? device.draftLayout : (device.layout ?? []));
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState<null | Date>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -31,10 +37,15 @@ export default function DeviceEditor({ device, assets }: Props) {
   async function save() {
     setSaving(true);
     setErr(null);
+    const body: Record<string, unknown> = { name, slug, width, height, rotation, bitDepth, background };
+    // Draft mode writes to draftLayout and leaves the live layout alone —
+    // so the device in the field keeps serving the old image until publish.
+    if (isDraftMode) body.draftLayout = layout;
+    else body.layout = layout;
     const res = await fetch(`/api/devices/${device._id}`, {
       method: "PATCH",
       headers: { "content-type": "application/json" },
-      body: JSON.stringify({ name, slug, width, height, rotation, bitDepth, background, layout }),
+      body: JSON.stringify(body),
     });
     setSaving(false);
     if (!res.ok) {
@@ -43,6 +54,38 @@ export default function DeviceEditor({ device, assets }: Props) {
     }
     setSaved(new Date());
     setPreviewBust(Date.now());
+  }
+
+  async function publishDraft() {
+    if (!confirm("Publish the draft? The live device will start serving this layout on its next pull.")) return;
+    setSaving(true);
+    setErr(null);
+    const res = await fetch(`/api/devices/${device._id}/publish`, { method: "POST" });
+    setSaving(false);
+    if (!res.ok) {
+      setErr("Publish failed");
+      return;
+    }
+    setIsDraftMode(false);
+    setPreviewBust(Date.now());
+    router.refresh();
+  }
+
+  async function saveAsTemplate() {
+    const tplName = prompt("Template name?", `${name} template`);
+    if (!tplName) return;
+    setSaving(true);
+    const res = await fetch("/api/layouts", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ name: tplName, width, height, background, layout }),
+    });
+    setSaving(false);
+    if (!res.ok) {
+      setErr("Save-as-template failed");
+      return;
+    }
+    setSaved(new Date());
   }
 
   async function del() {
@@ -58,11 +101,19 @@ export default function DeviceEditor({ device, assets }: Props) {
           <h1 className="text-2xl font-semibold">{name}</h1>
           <div className="text-sm text-neutral-500 font-mono">{origin}/{slug}/current.bmp</div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 items-center">
           <Link href="/" className="btn">Back</Link>
           <button className="btn btn-danger" onClick={del}>Delete</button>
+          <button className="btn" onClick={saveAsTemplate} disabled={saving}>Save as template</button>
+          <label className="flex items-center gap-1 text-xs text-neutral-400">
+            <input type="checkbox" checked={isDraftMode} onChange={(e) => setIsDraftMode(e.target.checked)} />
+            Draft mode
+          </label>
+          {isDraftMode && (
+            <button className="btn" onClick={publishDraft} disabled={saving}>Publish</button>
+          )}
           <button className="btn btn-primary" onClick={save} disabled={saving}>
-            {saving ? "Saving…" : "Save"}
+            {saving ? "Saving…" : isDraftMode ? "Save draft" : "Save"}
           </button>
         </div>
       </div>
@@ -117,6 +168,7 @@ export default function DeviceEditor({ device, assets }: Props) {
             height={editH}
             initialLayout={layout}
             assets={assets}
+            plugins={plugins}
             onChange={setLayout}
           />
         </div>
