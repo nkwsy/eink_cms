@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { PluginType } from "../types";
 import { DataSourceConfig, fetchDataSource } from "../data-sources";
 import { interpolate } from "../template";
-import { sanitiseSvg, svgEscape } from "../svg";
+import { sanitiseSvg, svgEscape, unwrapClaudeSvg } from "../svg";
 
 // Asks Claude to either (a) write the entire SVG itself ("svg" mode), or
 // (b) fill named variables in a user-authored SVG template ("text" mode).
@@ -80,7 +80,7 @@ export const claudeGenPlugin: PluginType<Settings, Data> = {
 
   async renderSvg(ctx, data) {
     if (ctx.settings.outputKind === "svg") {
-      return sanitiseSvg(data.text);
+      return sanitiseSvg(unwrapClaudeSvg(data.text));
     }
     const template = ctx.settings.svgTemplate ?? defaultTextTemplate(ctx.width, ctx.height);
     return interpolate(template, data.values ?? {});
