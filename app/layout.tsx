@@ -20,6 +20,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
               <nav className="flex items-center gap-4 text-sm">
                 <Link href="/" className="hover:text-emerald-400">Devices</Link>
                 <Link href="/assets" className="hover:text-emerald-400">Assets</Link>
+                <Link href="/plugins" className="hover:text-emerald-400">Plugins</Link>
+                <Link href="/media" className="hover:text-emerald-400">Media</Link>
+                <Link href="/layouts" className="hover:text-emerald-400">Layouts</Link>
                 <Link href="/devices/new" className="hover:text-emerald-400">+ New device</Link>
                 <form action="/api/auth/logout" method="post">
                   <button className="text-neutral-400 hover:text-red-400">Log out</button>

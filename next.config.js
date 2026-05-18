@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   experimental: {
-    serverComponentsExternalPackages: ["@napi-rs/canvas", "mongodb"],
+    serverComponentsExternalPackages: ["@napi-rs/canvas", "mongodb", "@resvg/resvg-js", "@anthropic-ai/sdk"],
   },
   async headers() {
     return [

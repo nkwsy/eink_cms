@@ -20,6 +20,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.rotation != null) update.rotation = Number(body.rotation);
   if (body.bitDepth != null) update.bitDepth = Number(body.bitDepth) === 24 ? 24 : 1;
   if (body.layout != null) update.layout = body.layout;
+  if (body.draftLayout !== undefined) update.draftLayout = body.draftLayout;
   if (body.background != null) update.background = body.background === "black" ? "black" : "white";
 
   const r = await col.findOneAndUpdate(

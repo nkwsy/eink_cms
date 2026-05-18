@@ -32,6 +32,15 @@ export async function devices(): Promise<Collection<DeviceDoc>> {
 export async function assets(): Promise<Collection<AssetDoc>> {
   return (await getDb()).collection<AssetDoc>("assets");
 }
+export async function pluginInstances(): Promise<Collection<PluginInstanceDoc>> {
+  return (await getDb()).collection<PluginInstanceDoc>("plugin_instances");
+}
+export async function media(): Promise<Collection<MediaItemDoc>> {
+  return (await getDb()).collection<MediaItemDoc>("media");
+}
+export async function layouts(): Promise<Collection<LayoutDoc>> {
+  return (await getDb()).collection<LayoutDoc>("layouts");
+}
 
 export { ObjectId };
 
@@ -43,7 +52,8 @@ export type BlockType =
   | "qr"
   | "date"
   | "line"
-  | "shape";
+  | "shape"
+  | "plugin";
 
 export type FontFamily = "mono" | "sans" | "houschka" | "houschka-bold" | "houschka-demibold" | "houschka-extrabold" | "pixelva" | "chikarego";
 
@@ -123,6 +133,12 @@ export type Block = {
 
   // shape
   shapeKind?: "filled" | "outlined";
+
+  // plugin
+  pluginInstanceId?: string;        // references PluginInstanceDoc._id
+  // image-block extension: when set, drawImage resolves a MediaItem instead
+  // of using the inline data-URL imageData. Old data-URL blocks keep working.
+  mediaId?: string;
 };
 
 export type AssetVariable = {
@@ -145,6 +161,9 @@ export type DeviceDoc = {
   // (e.g. the 28" 3840×1080 panel).
   bitDepth?: 1 | 24;
   layout: Block[];
+  // Optional uncommitted draft. The public pull endpoint always serves
+  // `layout`; the editor edits `draftLayout` and "Publish" copies it across.
+  draftLayout?: Block[];
   updatedAt: Date;
   createdAt: Date;
 };
@@ -159,4 +178,62 @@ export type AssetDoc = {
   variables?: AssetVariable[];
   updatedAt: Date;
   createdAt: Date;
+};
+
+// A configured instance of a code-defined plugin type. The type itself lives
+// in lib/plugins/types/<id>.ts; settings are validated by that type's zod
+// schema at fetch time.
+export type PluginInstanceDoc = {
+  _id?: ObjectId;
+  typeId: string;                  // e.g. "custom-svg", "plant-heatmap"
+  name: string;
+  width: number;
+  height: number;
+  settings: Record<string, unknown>;
+  ttlSec: number;                  // refresh interval (regenerate-on-pull cap)
+  // Last successful fetch timestamp. We use this as the TTL anchor.
+  lastRunAt?: Date;
+  // Hash of the most recent fetched data payload — skip re-rendering when
+  // unchanged, even if TTL is exceeded.
+  lastDataHash?: string;
+  // Most recently generated media item for this instance. Block render
+  // path reads this id and composites the image.
+  latestMediaId?: string;
+  // Surface fetch/render errors to the CMS without crashing the device pull.
+  lastError?: { at: Date; message: string };
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+// Generic media store — uploads (user-cropped/dithered images) and plugin
+// outputs share one collection so the library UI can list both.
+export type MediaItemDoc = {
+  _id?: ObjectId;
+  kind: "upload" | "generated";
+  name?: string;
+  mimeType: string;                // "image/png", "image/svg+xml", "image/jpeg"
+  width: number;
+  height: number;
+  // v1 stores image bytes inline as a data URL — same as existing image
+  // blocks. The storageRef escape hatch is reserved for a later move to
+  // blob storage without touching call sites.
+  dataUrl?: string;
+  storageRef?: string;
+  // Provenance for generated items.
+  sourcePluginId?: string;
+  sourceDataHash?: string;
+  createdAt: Date;
+};
+
+// A named, reusable layout independent of any device. Applied to a device by
+// copying its blocks (and dimensions) onto the device's draft or live layout.
+export type LayoutDoc = {
+  _id?: ObjectId;
+  name: string;
+  width: number;
+  height: number;
+  background?: "white" | "black";
+  layout: Block[];
+  createdAt: Date;
+  updatedAt: Date;
 };

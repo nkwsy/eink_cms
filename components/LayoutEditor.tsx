@@ -5,12 +5,14 @@ import { PRESET_BLOCKS, gridBlocks, newBlock } from "@/lib/block";
 import ImageProcessor from "./ImageProcessor";
 
 type Asset = { _id: string; name: string; width: number; height: number; variables?: { key: string; label?: string; type: string; default?: string }[] };
+type PluginInstance = { _id: string; name: string; typeId: string; width: number; height: number };
 
 type Props = {
   width: number;
   height: number;
   initialLayout: Block[];
   assets: Asset[];
+  plugins?: PluginInstance[];
   onChange: (blocks: Block[]) => void;
 };
 
@@ -18,7 +20,7 @@ const SNAP = 2;
 const MAX_DISPLAY_W = 900;
 const MAX_DISPLAY_H = 700;
 
-export default function LayoutEditor({ width, height, initialLayout, assets, onChange }: Props) {
+export default function LayoutEditor({ width, height, initialLayout, assets, plugins = [], onChange }: Props) {
   const [blocks, setBlocks] = useState<Block[]>(initialLayout);
   const [selected, setSelected] = useState<string | null>(null);
   const [showImage, setShowImage] = useState(false);
@@ -61,6 +63,13 @@ export default function LayoutEditor({ width, height, initialLayout, assets, onC
     const a = assets.find((x) => x._id === assetId);
     if (!a) return;
     add(newBlock({ type: "asset", assetId, x: 10, y: 10, w: a.width, h: a.height, text: undefined }));
+  }
+  function addPluginInstance(pluginInstanceId: string) {
+    const p = plugins.find((x) => x._id === pluginInstanceId);
+    if (!p) return;
+    // Default the block to the instance's native pixel size so its image
+    // doesn't get resampled. Designers can resize after.
+    add(newBlock({ type: "plugin", pluginInstanceId, x: 10, y: 10, w: p.width, h: p.height, text: undefined }));
   }
   function addFullFill() {
     // Solid block covering the whole canvas, dropped at the back of the
@@ -105,6 +114,12 @@ export default function LayoutEditor({ width, height, initialLayout, assets, onC
               {assets.map((a) => <option key={a._id} value={a._id}>{a.name} ({a.width}×{a.height})</option>)}
             </select>
           )}
+          {plugins.length > 0 && (
+            <select className="input max-w-[220px]" onChange={(e) => { if (e.target.value) addPluginInstance(e.target.value); e.target.value = ""; }} defaultValue="">
+              <option value="">+ Plugin…</option>
+              {plugins.map((p) => <option key={p._id} value={p._id}>{p.name} ({p.typeId})</option>)}
+            </select>
+          )}
           <span className="mx-2 text-neutral-600">|</span>
           <button className="btn" onClick={() => addGrid(2, 2)}>Grid 2×2</button>
           <button className="btn" onClick={() => addGrid(3, 2)}>Grid 3×2</button>
@@ -134,6 +149,7 @@ export default function LayoutEditor({ width, height, initialLayout, assets, onC
               onSelect={() => setSelected(b.id)}
               onUpdate={(patch) => update(b.id, patch)}
               assets={assets}
+              plugins={plugins}
             />
           ))}
         </div>
@@ -149,6 +165,7 @@ export default function LayoutEditor({ width, height, initialLayout, assets, onC
           <BlockInspector
             block={selectedBlock}
             assets={assets}
+            plugins={plugins}
             canvasW={width}
             canvasH={height}
             onUpdate={(p) => update(selectedBlock.id, p)}
@@ -182,12 +199,13 @@ export default function LayoutEditor({ width, height, initialLayout, assets, onC
 }
 
 function BlockView({
-  block, scale, canvasW, canvasH, selected, onSelect, onUpdate, assets,
+  block, scale, canvasW, canvasH, selected, onSelect, onUpdate, assets, plugins,
 }: {
   block: Block; scale: number; canvasW: number; canvasH: number;
   selected: boolean; onSelect: () => void;
   onUpdate: (p: Partial<Block>) => void;
   assets: Asset[];
+  plugins: PluginInstance[];
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const mode = useRef<"move" | "resize" | null>(null);
@@ -297,6 +315,14 @@ function BlockView({
         <div className={`${block.lineColor === "white" ? "bg-white border border-neutral-400" : "bg-black"} ${block.lineDirection === "vertical" ? "w-[2px] h-full mx-auto" : "h-[2px] w-full my-auto"}`} />
       ) : block.type === "shape" ? (
         <div className={`w-full h-full ${block.shapeKind === "filled" ? "bg-black" : "border-2 border-black"}`} />
+      ) : block.type === "plugin" ? (
+        block.pluginInstanceId
+          ? <img
+              src={`/api/plugins/instances/${block.pluginInstanceId}/preview.png?t=${block.id}`}
+              alt=""
+              className="w-full h-full pixelated object-contain bg-white"
+            />
+          : <div className="w-full h-full flex items-center justify-center text-[10px] bg-neutral-200 text-neutral-500">no plugin selected</div>
       ) : (
         <div>{block.text}</div>
       )}
@@ -324,9 +350,9 @@ function cssFontFamily(family: FontFamily | undefined): string {
 }
 
 function BlockInspector({
-  block, assets, canvasW, canvasH, onUpdate, onRemove, onDuplicate, onEditImage, onReorder,
+  block, assets, plugins, canvasW, canvasH, onUpdate, onRemove, onDuplicate, onEditImage, onReorder,
 }: {
-  block: Block; assets: Asset[]; canvasW: number; canvasH: number;
+  block: Block; assets: Asset[]; plugins: PluginInstance[]; canvasW: number; canvasH: number;
   onUpdate: (p: Partial<Block>) => void;
   onRemove: () => void;
   onDuplicate: () => void;
@@ -365,6 +391,7 @@ function BlockInspector({
           <option value="date">Date / time</option>
           <option value="line">Line</option>
           <option value="shape">Shape</option>
+          <option value="plugin">Plugin</option>
         </select>
       </div>
 
@@ -413,6 +440,7 @@ function BlockInspector({
       {block.type === "date" && <DateFields block={block} onUpdate={onUpdate} />}
       {block.type === "line" && <LineFields block={block} onUpdate={onUpdate} />}
       {block.type === "shape" && <ShapeFields block={block} onUpdate={onUpdate} />}
+      {block.type === "plugin" && <PluginFields block={block} plugins={plugins} onUpdate={onUpdate} />}
 
       {block.type !== "line" && block.type !== "shape" && (
         <div className="grid grid-cols-2 gap-2">
@@ -433,7 +461,43 @@ function titleFor(b: Block): string {
     date: "Date / time",
     line: "Line",
     shape: "Shape",
+    plugin: "Plugin block",
   } as const)[b.type] ?? "Block";
+}
+
+function PluginFields({ block, plugins, onUpdate }: { block: Block; plugins: PluginInstance[]; onUpdate: (p: Partial<Block>) => void }) {
+  const current = plugins.find((p) => p._id === block.pluginInstanceId);
+  return (
+    <div className="space-y-2">
+      <div>
+        <label className="label">Plugin instance</label>
+        <select
+          className="input"
+          value={block.pluginInstanceId ?? ""}
+          onChange={(e) => {
+            const id = e.target.value || undefined;
+            const p = plugins.find((x) => x._id === id);
+            // Snapping w/h to the plugin's native size avoids resampling the cached PNG.
+            onUpdate(p ? { pluginInstanceId: id, w: p.width, h: p.height } : { pluginInstanceId: undefined });
+          }}
+        >
+          <option value="">— pick one —</option>
+          {plugins.map((p) => <option key={p._id} value={p._id}>{p.name} ({p.typeId})</option>)}
+        </select>
+      </div>
+      {current && (
+        <div className="text-xs text-neutral-500">
+          Native size {current.width}×{current.height}.{" "}
+          <a className="text-emerald-400 underline" href={`/plugins/${current._id}`} target="_blank">Edit plugin →</a>
+        </div>
+      )}
+      {!plugins.length && (
+        <div className="text-xs text-neutral-500">
+          No plugins yet. <a className="text-emerald-400 underline" href="/plugins/new" target="_blank">Create one →</a>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function NumField({ label, value, onChange }: { label: string; value: number; onChange: (v: number) => void }) {

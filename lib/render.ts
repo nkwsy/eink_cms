@@ -7,6 +7,8 @@ import { ensureFontsRegistered, fontString } from "./fonts";
 import { renderQr } from "./qr";
 import { abbreviateDay, dayOfMonth, formatTimeParts, monthName, parseFlexible } from "./dates";
 import { editorDims } from "./dims";
+import { ensureFreshOutput } from "./plugins/runner";
+import { getMedia } from "./media";
 
 // ---- Rendering pipeline ----
 // 1) Draw everything onto an RGBA canvas at device pixel size.
@@ -153,6 +155,29 @@ async function drawBlock(
     case "shape":
       drawShape(ctx, block, fg);
       return;
+    case "plugin":
+      await drawPluginBlock(ctx, block);
+      return;
+  }
+}
+
+// Plugin output is a PNG cached in the media collection. We make sure it's
+// fresh (subject to the instance's TTL) and then draw it at the block's
+// position and size — same compositing path as drawImage.
+async function drawPluginBlock(ctx: SKRSContext2D, block: Block) {
+  if (!block.pluginInstanceId) return;
+  try {
+    const inst = await ensureFreshOutput(block.pluginInstanceId);
+    const mediaId = inst?.latestMediaId;
+    if (!mediaId) return;
+    const m = await getMedia(mediaId);
+    if (!m?.dataUrl) return;
+    const img = await loadImage(m.dataUrl);
+    // @ts-ignore
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(img, block.x, block.y, block.w, block.h);
+  } catch (e) {
+    console.error("plugin block render failed", block.pluginInstanceId, e);
   }
 }
 
@@ -194,7 +219,14 @@ async function drawImage(ctx: SKRSContext2D, block: Block, dctx: DrawCtx) {
   //   - a data: URL (user-uploaded 1-bit PNG)
   //   - a leading-slash path, resolved against ./public/ on disk
   //   - an http(s) URL (fetched by loadImage)
+  //
+  // Additionally, mediaId points at a MediaItem and wins over imageData
+  // when both are present. Existing data-URL blocks keep working.
   let src = block.imageData;
+  if (block.mediaId) {
+    const m = await getMedia(block.mediaId);
+    if (m?.dataUrl) src = m.dataUrl;
+  }
   if (src && src.startsWith("{{") && src.endsWith("}}")) {
     const key = src.slice(2, -2).trim();
     src = dctx.imageBindings?.[key] ?? dctx.bindings?.[key];

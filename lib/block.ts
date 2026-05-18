@@ -26,6 +26,7 @@ export const PRESET_BLOCKS: Record<string, () => Block> = {
   lineV: () => newBlock({ type: "line", w: 4, h: 200, lineDirection: "vertical", lineThickness: 2, text: undefined }),
   shape: () => newBlock({ type: "shape", w: 120, h: 40, shapeKind: "outlined", lineThickness: 2, text: undefined }),
   fill: () => newBlock({ type: "shape", w: 200, h: 40, shapeKind: "filled", text: undefined }),
+  plugin: () => newBlock({ type: "plugin", w: 480, h: 320, text: undefined }),
 };
 
 export function gridBlocks(rect: { x: number; y: number; w: number; h: number }, cols: number, rows: number, gap = 0): Block[] {
