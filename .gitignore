@@ -3,6 +3,7 @@
 __pycache__
 legacy/eink_gen.egg-info
 legacy/eink_gen/banners.db
+/eink_gen/
 legacy/app.log
 
 # Env

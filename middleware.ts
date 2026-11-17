@@ -6,8 +6,9 @@ const PUBLIC_PATHS = ["/login", "/api/auth/login", "/favicon.ico"];
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Public BMP endpoint: /:slug/current.bmp and /:slug/current.png
-  if (/^\/[^/]+\/current\.(bmp|png)$/.test(pathname)) {
+  // Public device endpoints: /:slug/current.bmp, /:slug/current.png and the
+  // device settings file /:slug/dv_signage.xml
+  if (/^\/[^/]+\/(current\.(bmp|png)|dv_signage\.xml)$/.test(pathname)) {
     return NextResponse.next();
   }
   if (PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p + "/"))) {

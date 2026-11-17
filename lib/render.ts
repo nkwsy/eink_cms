@@ -1,4 +1,4 @@
-import { createCanvas, loadImage, SKRSContext2D } from "@napi-rs/canvas";
+import { createCanvas, loadImage, Image, SKRSContext2D } from "@napi-rs/canvas";
 import path from "node:path";
 import fs from "node:fs/promises";
 import { AssetDoc, Block, DeviceDoc, FontFamily } from "./mongo";
@@ -72,7 +72,7 @@ export async function renderDevice(
 }
 
 
-function rotatePixels(pixels: Uint8Array, w: number, h: number, deg: number) {
+export function rotatePixels(pixels: Uint8Array, w: number, h: number, deg: number) {
   if (deg === 180) {
     const out = new Uint8Array(pixels.length);
     for (let i = 0; i < pixels.length; i++) out[pixels.length - 1 - i] = pixels[i];
@@ -98,13 +98,48 @@ function rotatePixels(pixels: Uint8Array, w: number, h: number, deg: number) {
 
 // Context passed through asset instances so variable bindings propagate
 // into child blocks (text templates, image slots, QR URLs, dates).
-type DrawCtx = {
+export type DrawCtx = {
   bindings?: Record<string, string>;
   imageBindings?: Record<string, string>;
   defaultBg?: "white" | "black";
+  // When set, every piece of text drawn is added to these bounds. The crisp
+  // renderer uses it to know which pixels a block touched.
+  ink?: InkBounds;
 };
 
-function applyVars(text: string | undefined, dctx: DrawCtx): string {
+/** Running bounding box of everything a block drew. */
+export class InkBounds {
+  x0 = Infinity;
+  y0 = Infinity;
+  x1 = -Infinity;
+  y1 = -Infinity;
+  add(x: number, y: number, w: number, h: number) {
+    this.x0 = Math.min(this.x0, x);
+    this.y0 = Math.min(this.y0, y);
+    this.x1 = Math.max(this.x1, x + w);
+    this.y1 = Math.max(this.y1, y + h);
+  }
+  rect(): { x: number; y: number; w: number; h: number } | null {
+    if (this.x1 <= this.x0 || this.y1 <= this.y0) return null;
+    const x = Math.floor(this.x0);
+    const y = Math.floor(this.y0);
+    return { x, y, w: Math.ceil(this.x1) - x, h: Math.ceil(this.y1) - y };
+  }
+}
+
+// fillText that also records a generous box around the glyphs it drew.
+function fillTextTracked(ctx: SKRSContext2D, dctx: DrawCtx, text: string, x: number, y: number, size: number) {
+  ctx.fillText(text, x, y);
+  if (!dctx.ink) return;
+  const w = ctx.measureText(text).width;
+  let left = x;
+  if (ctx.textAlign === "center") left = x - w / 2;
+  else if (ctx.textAlign === "right" || ctx.textAlign === "end") left = x - w;
+  const top = ctx.textBaseline === "top" ? y : y - size;
+  dctx.ink.add(left - size * 0.3, top - size * 0.4, w + size * 0.6, size * 1.9);
+}
+
+export function applyVars(text: string | undefined, dctx: DrawCtx): string {
   if (!text) return "";
   if (!dctx.bindings) return text;
   return text.replace(/\{\{\s*([\w.-]+)\s*\}\}/g, (_, k) => {
@@ -165,19 +200,26 @@ async function drawBlock(
 // fresh (subject to the instance's TTL) and then draw it at the block's
 // position and size — same compositing path as drawImage.
 async function drawPluginBlock(ctx: SKRSContext2D, block: Block) {
-  if (!block.pluginInstanceId) return;
+  const img = await loadPluginImage(block);
+  if (!img) return;
+  // @ts-ignore
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, block.x, block.y, block.w, block.h);
+}
+
+/** The latest output image of a plugin block, or null when it has none. */
+export async function loadPluginImage(block: Block): Promise<Image | null> {
+  if (!block.pluginInstanceId) return null;
   try {
     const inst = await ensureFreshOutput(block.pluginInstanceId);
     const mediaId = inst?.latestMediaId;
-    if (!mediaId) return;
+    if (!mediaId) return null;
     const m = await getMedia(mediaId);
-    if (!m?.dataUrl) return;
-    const img = await loadImage(m.dataUrl);
-    // @ts-ignore
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, block.x, block.y, block.w, block.h);
+    if (!m?.dataUrl) return null;
+    return await loadImage(m.dataUrl);
   } catch (e) {
     console.error("plugin block render failed", block.pluginInstanceId, e);
+    return null;
   }
 }
 
@@ -214,6 +256,15 @@ async function drawAsset(ctx: SKRSContext2D, block: Block, assetMap: Map<string,
 }
 
 async function drawImage(ctx: SKRSContext2D, block: Block, dctx: DrawCtx) {
+  const img = await loadBlockImage(block, dctx);
+  if (!img) return;
+  // @ts-ignore
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(img, block.x, block.y, block.w, block.h);
+}
+
+/** Resolves and loads an image block's picture, or null when it has none. */
+export async function loadBlockImage(block: Block, dctx: DrawCtx): Promise<Image | null> {
   // imageData may reference a variable slot name — e.g. "{{photo}}" — which
   // lets asset instances swap images. It may also be:
   //   - a data: URL (user-uploaded 1-bit PNG)
@@ -231,23 +282,21 @@ async function drawImage(ctx: SKRSContext2D, block: Block, dctx: DrawCtx) {
     const key = src.slice(2, -2).trim();
     src = dctx.imageBindings?.[key] ?? dctx.bindings?.[key];
   }
-  if (!src) return;
+  if (!src) return null;
   try {
     let source: string | Buffer = src;
     if (src.startsWith("/")) {
       const abs = path.join(process.cwd(), "public", src.replace(/^\/+/, ""));
       source = await fs.readFile(abs);
     }
-    const img = await loadImage(source);
-    // @ts-ignore
-    ctx.imageSmoothingEnabled = false;
-    ctx.drawImage(img, block.x, block.y, block.w, block.h);
+    return await loadImage(source);
   } catch (e) {
-    console.error("image load failed", src, e);
+    console.error("image load failed", src.slice(0, 80), e);
+    return null;
   }
 }
 
-function drawText(ctx: SKRSContext2D, block: Block, fg: string, dctx: DrawCtx) {
+export function drawText(ctx: SKRSContext2D, block: Block, fg: string, dctx: DrawCtx) {
   const padding = block.padding ?? 4;
   const x = block.x + padding;
   const y = block.y + padding;
@@ -286,7 +335,7 @@ function drawText(ctx: SKRSContext2D, block: Block, fg: string, dctx: DrawCtx) {
       let cx = lx;
       for (const r of line) {
         ctx.font = fontString(family, size, r.bold, r.italic);
-        ctx.fillText(r.text, cx, yy);
+        fillTextTracked(ctx, dctx, r.text, cx, yy, size);
         cx += ctx.measureText(r.text).width;
       }
     }
@@ -310,7 +359,7 @@ function drawText(ctx: SKRSContext2D, block: Block, fg: string, dctx: DrawCtx) {
     let lx = x;
     if (block.align === "center") lx = x + Math.max(0, Math.floor((w - m.width) / 2));
     if (block.align === "right") lx = x + Math.max(0, w - Math.ceil(m.width));
-    ctx.fillText(line, lx, startY + i * lineHeight);
+    fillTextTracked(ctx, dctx, line, lx, startY + i * lineHeight, size);
   }
 }
 
@@ -418,6 +467,7 @@ async function drawQrBlock(ctx: SKRSContext2D, block: Block, dctx: DrawCtx, fg: 
   // (black-bg) QR's intended quiet zone.
   await renderQr(ctx, url, { x: block.x, y: block.y, w: block.w, h: block.h }, {
     margin: block.qrMargin ?? 0,
+    quietModules: block.qrQuiet,
     errorLevel: block.qrErrorLevel ?? "L",
     style: block.qrStyle ?? "square",
     verticalShrink: block.qrVerticalShrink ?? 0.8,
@@ -425,7 +475,7 @@ async function drawQrBlock(ctx: SKRSContext2D, block: Block, dctx: DrawCtx, fg: 
   });
 }
 
-function drawDate(ctx: SKRSContext2D, block: Block, fg: string, dctx: DrawCtx) {
+export function drawDate(ctx: SKRSContext2D, block: Block, fg: string, dctx: DrawCtx) {
   const dateSrc = applyVars(block.dateISO, dctx);
   const date = parseFlexible(dateSrc) ?? new Date();
   const startTime = parseFlexible(applyVars(block.startTime, dctx), date);
@@ -457,7 +507,7 @@ function drawDate(ctx: SKRSContext2D, block: Block, fg: string, dctx: DrawCtx) {
     const y = block.y + padding;
     const lx = block.align === "center" ? x + Math.max(0, (innerW - m.width) / 2) :
                block.align === "right"  ? x + Math.max(0, innerW - m.width) : x;
-    ctx.fillText(line, lx, y);
+    fillTextTracked(ctx, dctx, line, lx, y, block.fontSize ?? 16);
     return;
   }
 
@@ -483,17 +533,17 @@ function drawDate(ctx: SKRSContext2D, block: Block, fg: string, dctx: DrawCtx) {
   if (block.dateShowDayOfWeek !== false) {
     ctx.font = fontString("houschka-demibold", size(4), false, false);
     ctx.textBaseline = "alphabetic";
-    ctx.fillText(abbreviateDay(date), dateCx, yFrac(0.25));
+    fillTextTracked(ctx, dctx, abbreviateDay(date), dateCx, yFrac(0.25), size(4));
   }
   if (block.dateShowDay !== false) {
     ctx.font = fontString("houschka", size(8), false, false);
     ctx.textBaseline = "alphabetic";
-    ctx.fillText(dayOfMonth(date), dateCx, yFrac(0.75));
+    fillTextTracked(ctx, dctx, dayOfMonth(date), dateCx, yFrac(0.75), size(8));
   }
   if (block.dateShowMonth !== false) {
     ctx.font = fontString("houschka", size(2), false, false);
     ctx.textBaseline = "top";
-    ctx.fillText(monthName(date), dateCx, yFrac(0.80));
+    fillTextTracked(ctx, dctx, monthName(date), dateCx, yFrac(0.80), size(2));
   }
 
   if (block.dateShowTime && startTime) {
@@ -501,12 +551,12 @@ function drawDate(ctx: SKRSContext2D, block: Block, fg: string, dctx: DrawCtx) {
     const s = formatTimeParts(startTime);
     ctx.font = fontString("houschka-demibold", size(3), false, false);
     ctx.textBaseline = "alphabetic";
-    ctx.fillText(`${s.hm}${s.ampm}`, timeLx, yFrac(0.75));
+    fillTextTracked(ctx, dctx, `${s.hm}${s.ampm}`, timeLx, yFrac(0.75), size(3));
     if (endTime) {
       const e = formatTimeParts(endTime);
       ctx.font = fontString("houschka", size(1), false, false);
       ctx.textBaseline = "top";
-      ctx.fillText(`to ${e.hm}${e.ampm}`, timeLx, yFrac(0.80));
+      fillTextTracked(ctx, dctx, `to ${e.hm}${e.ampm}`, timeLx, yFrac(0.80), size(1));
     }
   }
   ctx.textAlign = "left";

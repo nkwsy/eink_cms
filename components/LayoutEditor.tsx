@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Block, FontFamily } from "@/lib/mongo";
 import { PRESET_BLOCKS, gridBlocks, newBlock } from "@/lib/block";
+import { History, initHistory, pushHistory, redoHistory, undoHistory } from "@/lib/history";
 import ImageProcessor from "./ImageProcessor";
 
 type Asset = { _id: string; name: string; width: number; height: number; variables?: { key: string; label?: string; type: string; default?: string }[] };
@@ -21,13 +22,43 @@ const MAX_DISPLAY_W = 900;
 const MAX_DISPLAY_H = 700;
 
 export default function LayoutEditor({ width, height, initialLayout, assets, plugins = [], onChange }: Props) {
-  const [blocks, setBlocks] = useState<Block[]>(initialLayout);
+  // Every change goes through setBlocks, which records it for undo. `key`
+  // names a stream of small changes (dragging one block, typing in one field)
+  // that should undo as a single step.
+  const [hist, setHist] = useState<History<Block[]>>(() => initHistory(initialLayout));
+  const blocks = hist.present;
+  function setBlocks(change: (prev: Block[]) => Block[], key: string | null = null) {
+    const now = Date.now();
+    setHist((h) => pushHistory(h, change(h.present), key, now));
+  }
   const [selected, setSelected] = useState<string | null>(null);
   const [showImage, setShowImage] = useState(false);
   const [showGrid, setShowGrid] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
+  const rootRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => { onChange(blocks); /* eslint-disable-next-line */ }, [blocks]);
+
+  const undo = () => setHist(undoHistory);
+  const redo = () => setHist(redoHistory);
+
+  // Ctrl/Cmd+Z undoes, Ctrl/Cmd+Shift+Z or Ctrl+Y redoes. Fields outside the
+  // editor (device name, slug…) keep the browser's own undo.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey) return;
+      const k = e.key.toLowerCase();
+      if (k !== "z" && k !== "y") return;
+      const t = e.target as HTMLElement | null;
+      const typing = !!t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
+      if (typing && !rootRef.current?.contains(t)) return;
+      e.preventDefault();
+      if (k === "y" || e.shiftKey) setHist(redoHistory);
+      else setHist(undoHistory);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const scale = useMemo(
     () => Math.min(1, MAX_DISPLAY_W / width, MAX_DISPLAY_H / height),
@@ -36,7 +67,10 @@ export default function LayoutEditor({ width, height, initialLayout, assets, plu
   const selectedBlock = blocks.find((b) => b.id === selected) ?? null;
 
   function update(id: string, patch: Partial<Block>) {
-    setBlocks((prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)));
+    setBlocks(
+      (prev) => prev.map((b) => (b.id === id ? { ...b, ...patch } : b)),
+      `${id}:${Object.keys(patch).sort().join(",")}`
+    );
   }
   function remove(id: string) {
     setBlocks((prev) => prev.filter((b) => b.id !== id));
@@ -95,9 +129,12 @@ export default function LayoutEditor({ width, height, initialLayout, assets, plu
   }
 
   return (
-    <div className="grid grid-cols-[1fr_360px] gap-4">
+    <div ref={rootRef} className="grid grid-cols-[1fr_360px] gap-4">
       <div>
         <div className="flex items-center gap-2 mb-2 flex-wrap text-sm">
+          <button className="btn" onClick={undo} disabled={hist.past.length === 0} title="Undo (Ctrl+Z)">↶ Undo</button>
+          <button className="btn" onClick={redo} disabled={hist.future.length === 0} title="Redo (Ctrl+Shift+Z)">↷ Redo</button>
+          <span className="mx-2 text-neutral-600">|</span>
           <button className="btn" onClick={() => add(PRESET_BLOCKS.text())}>+ Text</button>
           <button className="btn" onClick={() => add(PRESET_BLOCKS.heading())}>+ Heading</button>
           <button className="btn" onClick={() => { const b = PRESET_BLOCKS.image(); add(b); setShowImage(true); }}>+ Image</button>
@@ -431,8 +468,10 @@ function BlockInspector({
           <button className="btn w-full mt-2" onClick={onEditImage}>{block.imageData ? "Replace image" : "Upload image"}</button>
           <p className="text-xs text-neutral-500 mt-2">Or bind to an asset variable: set the field to <code>{`{{varname}}`}</code>.</p>
           <input className="input mt-1" placeholder="e.g. {{photo}}" value={typeof block.imageData === "string" && block.imageData.startsWith("{{") ? block.imageData : ""} onChange={(e) => onUpdate({ imageData: e.target.value })} />
+          <ImageModeField block={block} onUpdate={onUpdate} fallback="auto" />
         </div>
       )}
+      {block.type === "plugin" && <ImageModeField block={block} onUpdate={onUpdate} fallback="sharp" />}
       {block.type === "asset" && (
         <AssetInstanceFields block={block} assets={assets} onUpdate={onUpdate} pickedAsset={pickedAsset} />
       )}
@@ -602,6 +641,25 @@ function TextFields({ block, onUpdate }: { block: Block; onUpdate: (p: Partial<B
   );
 }
 
+// How the picture is turned into pure black and white when the screen is promoted.
+function ImageModeField({ block, onUpdate, fallback }: { block: Block; onUpdate: (p: Partial<Block>) => void; fallback: "auto" | "sharp" }) {
+  return (
+    <div className="mt-2">
+      <label className="label">Black-and-white conversion</label>
+      <select
+        className="input"
+        value={block.imageMode ?? fallback}
+        onChange={(e) => onUpdate({ imageMode: e.target.value as Block["imageMode"] })}
+      >
+        <option value="auto">Auto (chosen from the picture)</option>
+        <option value="sharp">Sharp — line art and prepared images</option>
+        <option value="dots">Dots — flat grey areas become a dot pattern</option>
+        <option value="dither">Dither — photographs and shading</option>
+      </select>
+    </div>
+  );
+}
+
 function QrFields({ block, onUpdate }: { block: Block; onUpdate: (p: Partial<Block>) => void }) {
   const style = block.qrStyle ?? "square";
   return (
@@ -611,10 +669,20 @@ function QrFields({ block, onUpdate }: { block: Block; onUpdate: (p: Partial<Blo
         <input className="input" value={block.qrUrl ?? ""} onChange={(e) => onUpdate({ qrUrl: e.target.value })} placeholder="https://example.com" />
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="label">Margin (px)</label>
-          <input type="number" className="input" value={block.qrMargin ?? 0} onChange={(e) => onUpdate({ qrMargin: Number(e.target.value) })} />
-        </div>
+        {block.qrQuiet != null ? (
+          <div>
+            <label className="label">Quiet zone (modules)</label>
+            <input type="number" min={0} max={8} className="input" value={block.qrQuiet} onChange={(e) => onUpdate({ qrQuiet: Math.max(0, Math.round(Number(e.target.value))) })} />
+          </div>
+        ) : (
+          <div>
+            <label className="label">Margin (px)</label>
+            <input type="number" className="input" value={block.qrMargin ?? 0} onChange={(e) => onUpdate({ qrMargin: Number(e.target.value) })} />
+            <button type="button" className="text-xs text-emerald-400 mt-1" onClick={() => onUpdate({ qrQuiet: 4, qrMargin: undefined })}>
+              Use a standard 4-module quiet zone
+            </button>
+          </div>
+        )}
         <div>
           <label className="label">Error correction</label>
           <select className="input" value={block.qrErrorLevel ?? "L"} onChange={(e) => onUpdate({ qrErrorLevel: e.target.value as any })}>

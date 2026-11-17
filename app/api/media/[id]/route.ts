@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { deleteMedia, getMedia, dataUrlToBuffer } from "@/lib/media";
+import { versionsUsingMedia } from "@/lib/versions";
 
 // GET /api/media/<id>  → image bytes (use as <img src>)
 // GET /api/media/<id>?meta=1 → JSON record only
@@ -20,6 +21,17 @@ export async function GET(req: NextRequest, { params }: { params: { id: string }
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
+  // Saved versions of screens keep using the media they were made with.
+  const users = await versionsUsingMedia(params.id);
+  if (users.length) {
+    return NextResponse.json(
+      {
+        error: `This picture is used by ${users.length} saved version${users.length === 1 ? "" : "s"} of a screen, so it cannot be deleted.`,
+        versions: users,
+      },
+      { status: 409 }
+    );
+  }
   await deleteMedia(params.id);
   return NextResponse.json({ ok: true });
 }
