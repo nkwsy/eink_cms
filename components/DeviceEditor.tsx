@@ -58,7 +58,9 @@ export default function DeviceEditor({ device, assets, plugins = [] }: Props) {
   const [busy, setBusy] = useState<null | "save" | "promote" | "other">(null);
   const [saved, setSaved] = useState<null | Date>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [previewBust, setPreviewBust] = useState(Date.now());
+  // Changes after each save or promote so the preview images reload. Starts at
+  // a fixed value so the server-rendered page and the browser agree.
+  const [previewBust, setPreviewBust] = useState(0);
   const [status, setStatus] = useState<Status>({
     published: device.published ?? null,
     lastPull: device.lastPull ?? null,
@@ -68,7 +70,9 @@ export default function DeviceEditor({ device, assets, plugins = [] }: Props) {
     sizeMatches: true,
   });
 
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  // Filled in after mount so the server-rendered page and the browser agree.
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
 
   // Everything a save would write, as one string, to tell whether there are
   // unsaved edits.

@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { modelFiles } from "@/lib/mongo";
 
+// Read from the database on every request, never baked in at build time.
+export const dynamic = "force-dynamic";
+
 // Screen models that have a settings file, newest first.
 export async function GET() {
   const docs = await (await modelFiles())
