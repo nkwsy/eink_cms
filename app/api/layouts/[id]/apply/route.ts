@@ -11,7 +11,9 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const body = await req.json();
   const deviceId = String(body.deviceId ?? "");
   if (!ObjectId.isValid(deviceId)) return NextResponse.json({ error: "bad deviceId" }, { status: 400 });
-  const target = body.target === "live" ? "live" : "draft";
+  // Templates always land in the draft: the live image only changes through
+  // a promote, which is what draws and stores it.
+  const target = "draft" as "draft" | "live";
 
   const lcol = await layouts();
   const lay = await lcol.findOne({ _id: new ObjectId(params.id) });

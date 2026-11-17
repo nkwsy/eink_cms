@@ -431,8 +431,10 @@ function BlockInspector({
           <button className="btn w-full mt-2" onClick={onEditImage}>{block.imageData ? "Replace image" : "Upload image"}</button>
           <p className="text-xs text-neutral-500 mt-2">Or bind to an asset variable: set the field to <code>{`{{varname}}`}</code>.</p>
           <input className="input mt-1" placeholder="e.g. {{photo}}" value={typeof block.imageData === "string" && block.imageData.startsWith("{{") ? block.imageData : ""} onChange={(e) => onUpdate({ imageData: e.target.value })} />
+          <ImageModeField block={block} onUpdate={onUpdate} fallback="auto" />
         </div>
       )}
+      {block.type === "plugin" && <ImageModeField block={block} onUpdate={onUpdate} fallback="sharp" />}
       {block.type === "asset" && (
         <AssetInstanceFields block={block} assets={assets} onUpdate={onUpdate} pickedAsset={pickedAsset} />
       )}
@@ -602,6 +604,25 @@ function TextFields({ block, onUpdate }: { block: Block; onUpdate: (p: Partial<B
   );
 }
 
+// How the picture is turned into pure black and white when the screen is promoted.
+function ImageModeField({ block, onUpdate, fallback }: { block: Block; onUpdate: (p: Partial<Block>) => void; fallback: "auto" | "sharp" }) {
+  return (
+    <div className="mt-2">
+      <label className="label">Black-and-white conversion</label>
+      <select
+        className="input"
+        value={block.imageMode ?? fallback}
+        onChange={(e) => onUpdate({ imageMode: e.target.value as Block["imageMode"] })}
+      >
+        <option value="auto">Auto (chosen from the picture)</option>
+        <option value="sharp">Sharp — line art and prepared images</option>
+        <option value="dots">Dots — flat grey areas become a dot pattern</option>
+        <option value="dither">Dither — photographs and shading</option>
+      </select>
+    </div>
+  );
+}
+
 function QrFields({ block, onUpdate }: { block: Block; onUpdate: (p: Partial<Block>) => void }) {
   const style = block.qrStyle ?? "square";
   return (
@@ -611,10 +632,20 @@ function QrFields({ block, onUpdate }: { block: Block; onUpdate: (p: Partial<Blo
         <input className="input" value={block.qrUrl ?? ""} onChange={(e) => onUpdate({ qrUrl: e.target.value })} placeholder="https://example.com" />
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="label">Margin (px)</label>
-          <input type="number" className="input" value={block.qrMargin ?? 0} onChange={(e) => onUpdate({ qrMargin: Number(e.target.value) })} />
-        </div>
+        {block.qrQuiet != null ? (
+          <div>
+            <label className="label">Quiet zone (modules)</label>
+            <input type="number" min={0} max={8} className="input" value={block.qrQuiet} onChange={(e) => onUpdate({ qrQuiet: Math.max(0, Math.round(Number(e.target.value))) })} />
+          </div>
+        ) : (
+          <div>
+            <label className="label">Margin (px)</label>
+            <input type="number" className="input" value={block.qrMargin ?? 0} onChange={(e) => onUpdate({ qrMargin: Number(e.target.value) })} />
+            <button type="button" className="text-xs text-emerald-400 mt-1" onClick={() => onUpdate({ qrQuiet: 4, qrMargin: undefined })}>
+              Use a standard 4-module quiet zone
+            </button>
+          </div>
+        )}
         <div>
           <label className="label">Error correction</label>
           <select className="input" value={block.qrErrorLevel ?? "L"} onChange={(e) => onUpdate({ qrErrorLevel: e.target.value as any })}>
