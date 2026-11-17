@@ -44,11 +44,19 @@ export default async function HomePage() {
               <div className="text-xs text-neutral-500">{d.width}×{d.height}</div>
             </div>
             <div className="text-xs text-neutral-500 font-mono mt-1">/{d.slug}/current.bmp</div>
-            <div className="mt-3 rounded overflow-hidden border border-neutral-800 bg-white">
+            <div className="text-xs mt-1">
+              {d.published?.kind === "screen" && <span className="text-emerald-400">Ready to pull</span>}
+              {d.published?.kind === "calibration" && <span className="text-amber-400">Calibration chart showing</span>}
+              {!d.published && <span className="text-neutral-500">Old renderer</span>}
+              {d.hasDraftChanges && <span className="text-amber-400"> · draft not promoted</span>}
+              {d.lastPull && <span className="text-neutral-500"> · last pulled {new Date(d.lastPull.at).toLocaleString([], { dateStyle: "medium", timeStyle: "short" })}</span>}
+            </div>
+            <div className="mt-3 rounded overflow-hidden border border-neutral-800 bg-black">
+              {/* The image the sign gets: the stored copy once promoted. */}
               <img
-                src={`/api/devices/${d._id}/render?format=png&t=${new Date(d.updatedAt).getTime()}`}
+                src={`/${d.slug}/current.png?t=${new Date(d.published?.at ?? d.updatedAt).getTime()}`}
                 alt=""
-                className="w-full h-auto pixelated"
+                className="w-full h-auto"
               />
             </div>
           </Link>
@@ -61,5 +69,16 @@ export default async function HomePage() {
 async function loadList() {
   const col = await devices();
   const docs = await col.find({}).sort({ updatedAt: -1 }).toArray();
-  return docs.map((d) => ({ ...d, _id: String(d._id), updatedAt: d.updatedAt }));
+  return docs.map((d) => ({
+    _id: String(d._id),
+    name: d.name,
+    slug: d.slug,
+    width: d.width,
+    height: d.height,
+    updatedAt: d.updatedAt,
+    published: d.published,
+    lastPull: d.lastPull,
+    hasDraftChanges:
+      !!d.draftLayout && d.draftLayout.length > 0 && JSON.stringify(d.draftLayout) !== JSON.stringify(d.layout),
+  }));
 }

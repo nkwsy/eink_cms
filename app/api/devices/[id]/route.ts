@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ObjectId, devices } from "@/lib/mongo";
 import { slugify } from "@/lib/slug";
+import { clampCutoff } from "@/lib/render-crisp";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const col = await devices();
@@ -22,6 +23,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.layout != null) update.layout = body.layout;
   if (body.draftLayout !== undefined) update.draftLayout = body.draftLayout;
   if (body.background != null) update.background = body.background === "black" ? "black" : "white";
+  if (body.inkCutoff != null) update.inkCutoff = clampCutoff(Number(body.inkCutoff));
+  if (body.model != null) update.model = slugify(String(body.model));
 
   const r = await col.findOneAndUpdate(
     { _id: new ObjectId(params.id) },

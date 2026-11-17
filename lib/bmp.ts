@@ -118,6 +118,47 @@ export function encodeBmp24bit(width: number, height: number, rgba: Uint8Array |
   return buf;
 }
 
+// 24-bit BGR BMP from an 8-bit grey buffer (one byte per pixel). Same header
+// as encodeBmp24bit, which mirrors the reference file the 28" panel accepts.
+export function encodeBmp24FromGray(width: number, height: number, gray: Uint8Array): Buffer {
+  if (gray.length !== width * height) {
+    throw new Error(`grey buffer length ${gray.length} != ${width}*${height}`);
+  }
+  const rowStride = (width * 3 + 3) & ~3;
+  const imageSize = rowStride * height;
+  const pixelOffset = 54;
+  const buf = Buffer.alloc(pixelOffset + imageSize);
+
+  buf.write("BM", 0, "ascii");
+  buf.writeUInt32LE(buf.length, 2);
+  buf.writeUInt32LE(0, 6);
+  buf.writeUInt32LE(pixelOffset, 10);
+
+  buf.writeUInt32LE(40, 14);
+  buf.writeInt32LE(width, 18);
+  buf.writeInt32LE(height, 22); // positive = bottom-up
+  buf.writeUInt16LE(1, 26);
+  buf.writeUInt16LE(24, 28);
+  buf.writeUInt32LE(0, 30);
+  buf.writeUInt32LE(imageSize, 34);
+  buf.writeInt32LE(3779, 38);
+  buf.writeInt32LE(3779, 42);
+  buf.writeUInt32LE(0, 46);
+  buf.writeUInt32LE(0, 50);
+
+  for (let y = 0; y < height; y++) {
+    const srcRow = (height - 1 - y) * width;
+    let d = pixelOffset + y * rowStride;
+    for (let x = 0; x < width; x++) {
+      const v = gray[srcRow + x];
+      buf[d++] = v;
+      buf[d++] = v;
+      buf[d++] = v;
+    }
+  }
+  return buf;
+}
+
 // Rotate an RGBA buffer (4 bytes/pixel) by 90/180/270 degrees. Returns
 // new buffer + dims. deg=0 returns the input unchanged.
 export function rotateRgba(rgba: Uint8ClampedArray, w: number, h: number, deg: number): { rgba: Uint8ClampedArray; width: number; height: number } {

@@ -1,4 +1,4 @@
-import { MongoClient, Db, Collection, ObjectId } from "mongodb";
+import { MongoClient, Db, Collection, ObjectId, Binary } from "mongodb";
 
 const uri = process.env.MONGODB_URI;
 const dbName = process.env.MONGODB_DB || "eink_cms";
@@ -40,6 +40,15 @@ export async function media(): Promise<Collection<MediaItemDoc>> {
 }
 export async function layouts(): Promise<Collection<LayoutDoc>> {
   return (await getDb()).collection<LayoutDoc>("layouts");
+}
+export async function frames(): Promise<Collection<FrameDoc>> {
+  return (await getDb()).collection<FrameDoc>("frames");
+}
+export async function liveBackups(): Promise<Collection<LiveBackupDoc>> {
+  return (await getDb()).collection<LiveBackupDoc>("live_backups");
+}
+export async function modelFiles(): Promise<Collection<ModelFileDoc>> {
+  return (await getDb()).collection<ModelFileDoc>("model_files");
 }
 
 export { ObjectId };
@@ -92,6 +101,11 @@ export type Block = {
 
   // image
   imageData?: string;        // data: URL (already 1-bit PNG)
+  // How the crisp renderer turns this picture into black and white:
+  // "sharp" = hard cut-off (line art), "dots" = regular dot pattern (flat
+  // grey fills), "dither" = error diffusion (photographs). Unset = "auto",
+  // which picks one from the picture's tones. Also applies to plugin blocks.
+  imageMode?: "auto" | "sharp" | "dots" | "dither";
 
   // asset instance
   assetId?: string;
@@ -101,6 +115,9 @@ export type Block = {
   // qr
   qrUrl?: string;
   qrMargin?: number;         // pixels of quiet zone outside the QR within the block
+  // Quiet zone in modules (the QR standard asks for 4). Set on new blocks;
+  // when present it replaces qrMargin. Older blocks keep their pixel margin.
+  qrQuiet?: number;
   qrErrorLevel?: "L" | "M" | "Q" | "H";
   // Module style. "square" = classic filled squares per module (default).
   // "bars" = horizontal-bar style modelled on python-qrcode's
@@ -160,12 +177,70 @@ export type DeviceDoc = {
   // panels). 24 = 24-bit BGR BMP for controllers that refuse 1-bpp input
   // (e.g. the 28" 3840×1080 panel).
   bitDepth?: 1 | 24;
+  // The live layout: what the stored image in `published` was drawn from.
   layout: Block[];
-  // Optional uncommitted draft. The public pull endpoint always serves
-  // `layout`; the editor edits `draftLayout` and "Publish" copies it across.
+  // Work in progress. The editor always saves here; "Promote" draws it,
+  // stores the image and copies it to `layout`.
   draftLayout?: Block[];
+  // The finished image the pull URL serves. Unset on screens that have not
+  // been promoted since the crisp renderer shipped: those are still drawn on
+  // every pull by the old renderer, so their look is unchanged.
+  published?: PublishedRef;
+  // What was live before the calibration screen was shown (null = the old
+  // renderer). Present only while calibration is showing.
+  beforeCalibration?: PublishedRef | null;
+  // Last time the BMP was fetched from the pull URL.
+  lastPull?: { at: Date; userAgent?: string };
+  pullCount?: number;
+  // Text weight for the crisp renderer: a glyph pixel is inked when it is
+  // covered at least this much (0–255). Lower = heavier text. Default 128.
+  inkCutoff?: number;
+  // Screen model name, e.g. "28in-mono". Selects the dv_signage.xml served
+  // at /<slug>/dv_signage.xml.
+  model?: string;
   updatedAt: Date;
   createdAt: Date;
+};
+
+// Pointer to a stored finished image (see lib/published.ts).
+export type PublishedRef = {
+  frameId: string;
+  kind: "screen" | "calibration";
+  at: Date;
+  sha256: string;
+  width: number;
+  height: number;
+};
+
+// A finished image, stored compressed. One byte of grey per pixel.
+export type FrameDoc = {
+  _id?: ObjectId;
+  deviceId: string;
+  kind: "screen" | "calibration";
+  width: number;
+  height: number;
+  data: Binary;                    // zlib-deflated 8-bit grey
+  sha256: string;
+  renderer: string;
+  createdAt: Date;
+};
+
+// The live layout and image a promote replaced, kept so one promote can be
+// undone. One document per device. Phase 2 replaces this with full versions.
+export type LiveBackupDoc = {
+  _id?: ObjectId;
+  deviceId: string;
+  layout: Block[];
+  published: PublishedRef | null;
+  replacedAt: Date;
+};
+
+// Device settings file (dv_signage.xml) shared by every screen of one model.
+export type ModelFileDoc = {
+  _id?: ObjectId;
+  model: string;
+  content: string;
+  updatedAt: Date;
 };
 
 export type AssetDoc = {

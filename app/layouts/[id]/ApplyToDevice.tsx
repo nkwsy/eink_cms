@@ -6,7 +6,6 @@ type Device = { _id: string; name: string; slug: string; width: number; height: 
 
 export default function ApplyToDevice({ layoutId, devices }: { layoutId: string; devices: Device[] }) {
   const [deviceId, setDeviceId] = useState(devices[0]?._id ?? "");
-  const [target, setTarget] = useState<"draft" | "live">("draft");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -18,11 +17,11 @@ export default function ApplyToDevice({ layoutId, devices }: { layoutId: string;
       const r = await fetch(`/api/layouts/${layoutId}/apply`, {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ deviceId, target }),
+        body: JSON.stringify({ deviceId }),
       });
       const j = await r.json();
       if (!r.ok) throw new Error(j.error ?? "apply failed");
-      setMsg(`Applied ${j.blocks} blocks to ${target}`);
+      setMsg(`Applied ${j.blocks} blocks to the device's draft. Open the device and promote it to make it live.`);
     } catch (e: any) {
       setMsg(`Error: ${e.message}`);
     }
@@ -35,7 +34,10 @@ export default function ApplyToDevice({ layoutId, devices }: { layoutId: string;
 
   return (
     <div className="card space-y-3 max-w-xl">
-      <div className="text-sm text-neutral-400">Apply this template to a device. Draft is invisible to the device until you click Publish.</div>
+      <div className="text-sm text-neutral-400">
+        Apply this template to a device&apos;s draft. It replaces the current draft; the sign keeps
+        its live image until you promote.
+      </div>
       <label className="block">
         <span className="text-sm text-neutral-400">Device</span>
         <select className="block w-full mt-1 bg-neutral-900 border border-neutral-700 rounded px-3 py-2"
@@ -45,16 +47,8 @@ export default function ApplyToDevice({ layoutId, devices }: { layoutId: string;
           ))}
         </select>
       </label>
-      <label className="block">
-        <span className="text-sm text-neutral-400">Target</span>
-        <select className="block w-full mt-1 bg-neutral-900 border border-neutral-700 rounded px-3 py-2"
-                value={target} onChange={(e) => setTarget(e.target.value as "draft" | "live")}>
-          <option value="draft">Draft (safe — won't affect the device yet)</option>
-          <option value="live">Live (replaces the device's current layout)</option>
-        </select>
-      </label>
       <div className="flex gap-2">
-        <button onClick={apply} disabled={busy} className="btn btn-primary">{busy ? "Applying…" : "Apply"}</button>
+        <button onClick={apply} disabled={busy} className="btn btn-primary">{busy ? "Applying…" : "Apply to draft"}</button>
       </div>
       {msg && <div className="text-sm">{msg}</div>}
     </div>

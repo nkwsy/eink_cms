@@ -20,7 +20,9 @@ export const PRESET_BLOCKS: Record<string, () => Block> = {
   text: () => newBlock({ type: "text", text: "Text", w: 160, h: 32, fontSize: 18, fontFamily: "houschka" }),
   heading: () => newBlock({ type: "text", text: "Heading", w: 240, h: 44, fontSize: 32, fontFamily: "houschka-bold", bold: true }),
   image: () => newBlock({ type: "image", w: 200, h: 120 }),
-  qr: () => newBlock({ type: "qr", w: 120, h: 120, qrUrl: "https://example.com", qrErrorLevel: "L", qrMargin: 0, text: undefined }),
+  // New QR codes: bars style, a standard 4-module quiet zone and medium error
+  // correction so they scan reliably. Existing blocks keep what they had.
+  qr: () => newBlock({ type: "qr", w: 160, h: 160, qrUrl: "https://example.com", qrStyle: "bars", qrErrorLevel: "M", qrQuiet: 4, text: undefined }),
   date: () => newBlock({ type: "date", w: 200, h: 110, dateISO: new Date().toISOString(), dateShowDayOfWeek: true, dateShowDay: true, dateShowMonth: true, dateShowTime: false, dateLayout: "stacked", fontFamily: "houschka-demibold", fontSize: 18, text: undefined }),
   lineH: () => newBlock({ type: "line", w: 300, h: 4, lineDirection: "horizontal", lineThickness: 2, text: undefined }),
   lineV: () => newBlock({ type: "line", w: 4, h: 200, lineDirection: "vertical", lineThickness: 2, text: undefined }),

@@ -1,5 +1,17 @@
 import QRCode from "qrcode";
-import { SKRSContext2D } from "@napi-rs/canvas";
+
+// The renderer only ever fills rectangles, so it accepts anything with a
+// fillStyle and fillRect: a canvas context, or a FramePainter that writes
+// straight into a black-and-white frame.
+export type RectPainter = {
+  fillStyle: unknown;
+  fillRect(x: number, y: number, w: number, h: number): void;
+};
+
+/** Modules per side for this text at this error level. */
+export function qrModuleCount(text: string, errorLevel: "L" | "M" | "Q" | "H" = "M"): number {
+  return QRCode.create(text, { errorCorrectionLevel: errorLevel }).modules.size;
+}
 
 // We paint modules directly as filled rectangles at the target scale —
 // no offscreen 1-module-per-pixel canvas + upscale, which used to leave
@@ -17,11 +29,15 @@ import { SKRSContext2D } from "@napi-rs/canvas";
 export type QrStyle = "square" | "bars";
 
 export async function renderQr(
-  ctx: SKRSContext2D,
+  ctx: RectPainter,
   text: string,
   rect: { x: number; y: number; w: number; h: number },
   opts: {
     margin?: number;
+    // Quiet zone measured in modules (the QR standard asks for 4). When set it
+    // replaces `margin`, and the module size is chosen so code plus quiet zone
+    // fit the block.
+    quietModules?: number;
     errorLevel?: "L" | "M" | "Q" | "H";
     style?: QrStyle;
     verticalShrink?: number; // bars only; clamped to [0.1, 1]
@@ -31,7 +47,7 @@ export async function renderQr(
   if (!text) return;
 
   const errorLevel = opts.errorLevel ?? "L";
-  const margin = Math.max(0, opts.margin ?? 0);
+  let margin = Math.max(0, opts.margin ?? 0);
   const style: QrStyle = opts.style ?? "square";
   const verticalShrink = Math.min(1, Math.max(0.1, opts.verticalShrink ?? 0.8));
   const invert = opts.invert ?? true;
@@ -43,8 +59,15 @@ export async function renderQr(
   // Round the module size down so every module is an equal integer number
   // of output pixels — that's what keeps the result crisp after the 1-bit
   // threshold downstream.
-  const maxSide = Math.max(1, Math.min(rect.w, rect.h) - margin * 2);
-  const modulePx = Math.max(1, Math.floor(maxSide / size));
+  let modulePx: number;
+  if (opts.quietModules != null) {
+    const quiet = Math.max(0, Math.round(opts.quietModules));
+    modulePx = Math.max(1, Math.floor(Math.min(rect.w, rect.h) / (size + quiet * 2)));
+    margin = quiet * modulePx;
+  } else {
+    const maxSide = Math.max(1, Math.min(rect.w, rect.h) - margin * 2);
+    modulePx = Math.max(1, Math.floor(maxSide / size));
+  }
   const side = modulePx * size;
 
   const dx = rect.x + rect.w - side - margin;
