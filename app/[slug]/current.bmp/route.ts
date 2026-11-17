@@ -4,12 +4,20 @@ import { loadAssetMap } from "@/lib/fetch-assets";
 import { renderDevice } from "@/lib/render";
 import { frameToBmp } from "@/lib/frame";
 import { liveFrame, notePull } from "@/lib/published";
+import { applyDueSchedule } from "@/lib/versions";
 
 // Public — no auth. A sign fetches this once each time it is powered on.
 export async function GET(req: NextRequest, { params }: { params: { slug: string } }) {
   const col = await devices();
-  const doc = await col.findOne({ slug: params.slug });
+  let doc = await col.findOne({ slug: params.slug });
   if (!doc) return new NextResponse("not found", { status: 404 });
+  // A timed promote whose time has come goes live now. Its image was stored
+  // when it was set up, so this only moves a pointer.
+  try {
+    doc = await applyDueSchedule(doc);
+  } catch (e) {
+    console.error("[pull] could not apply timed promote", params.slug, e);
+  }
 
   const headers: Record<string, string> = {
     "Content-Type": "image/bmp",

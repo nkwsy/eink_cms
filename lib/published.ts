@@ -1,10 +1,9 @@
 // Stored finished images. Promoting a screen draws it once and stores the
 // result; the pull URL then hands over the stored copy without drawing
 // anything, so a sign that has just been powered on gets its image at once.
+// Promoting itself lives in lib/versions.ts.
 import { Binary } from "mongodb";
-import {
-  Block, DeviceDoc, devices, frames, liveBackups, ObjectId, PublishedRef,
-} from "./mongo";
+import { DeviceDoc, devices, frames, ObjectId, PublishedRef, versions } from "./mongo";
 import { frameHash, GrayFrame, packFrame, unpackFrame } from "./frame";
 import { CRISP_RENDERER, renderLayoutCrisp } from "./render-crisp";
 import { loadAssetMapForLayout } from "./fetch-assets";
@@ -56,45 +55,27 @@ export async function liveFrame(device: DeviceDoc): Promise<GrayFrame | null> {
   return renderLayoutCrisp(device, device.layout, await loadAssetMapForLayout(device.layout));
 }
 
-/** Deletes a device's stored images that nothing points at any more. */
-async function pruneFrames(deviceId: string, keep: Array<string | undefined | null>) {
-  const keepIds = keep.filter((k): k is string => !!k && ObjectId.isValid(k)).map((k) => new ObjectId(k));
-  const col = await frames();
-  await col.deleteMany({ deviceId, _id: { $nin: keepIds } });
-}
-
 /**
- * Draws the draft (or the live layout when there is no draft), stores the
- * image and makes it live. The layout and image it replaces are kept so the
- * promote can be undone once.
+ * Deletes a device's stored images that nothing points at any more: not the
+ * live image, not the one calibration is covering, not any version.
  */
-export async function promoteDevice(device: DeviceDoc): Promise<PublishedRef> {
-  const deviceId = String(device._id);
-  const source: Block[] =
-    device.draftLayout && device.draftLayout.length > 0 ? device.draftLayout : device.layout;
-  const frame = await renderLayoutCrisp(device, source, await loadAssetMapForLayout(source));
-  const ref = await storeFrame(deviceId, "screen", frame);
-
-  // While calibration is showing, the "real" live image is the one it covered.
-  const replacedPublished =
-    device.published?.kind === "calibration" ? device.beforeCalibration ?? null : device.published ?? null;
-  const backups = await liveBackups();
-  await backups.updateOne(
-    { deviceId },
-    { $set: { deviceId, layout: device.layout, published: replacedPublished, replacedAt: ref.at } },
-    { upsert: true }
+export async function pruneFrames(deviceId: string) {
+  if (!ObjectId.isValid(deviceId)) return;
+  const device = await (await devices()).findOne(
+    { _id: new ObjectId(deviceId) },
+    { projection: { published: 1, beforeCalibration: 1 } }
   );
-
-  const col = await devices();
-  await col.updateOne(
-    { _id: device._id },
-    {
-      $set: { layout: source, published: ref, updatedAt: ref.at },
-      $unset: { draftLayout: "", beforeCalibration: "" },
-    }
-  );
-  await pruneFrames(deviceId, [ref.frameId, replacedPublished?.frameId]);
-  return ref;
+  if (!device) return;
+  const used = await (await versions())
+    .find({ deviceId, "frame.frameId": { $exists: true } }, { projection: { frame: 1 } })
+    .toArray();
+  const keep = [device.published?.frameId, device.beforeCalibration?.frameId, ...used.map((v) => v.frame?.frameId)]
+    .filter((k): k is string => !!k && ObjectId.isValid(k))
+    .map((k) => new ObjectId(k));
+  // Leave very recent images alone: one may have just been stored by a
+  // request that has not written its pointer yet.
+  const cutoff = new Date(Date.now() - 2 * 60 * 1000);
+  await (await frames()).deleteMany({ deviceId, _id: { $nin: keep }, createdAt: { $lt: cutoff } });
 }
 
 /** Puts a calibration image on the pull URL without touching the layout. */
@@ -105,49 +86,22 @@ export async function showCalibration(device: DeviceDoc, frame: GrayFrame): Prom
     device.published?.kind === "calibration" ? device.beforeCalibration ?? null : device.published ?? null;
   const col = await devices();
   await col.updateOne({ _id: device._id }, { $set: { published: ref, beforeCalibration: covered } });
-  const backup = await (await liveBackups()).findOne({ deviceId });
-  await pruneFrames(deviceId, [ref.frameId, covered?.frameId, backup?.published?.frameId]);
+  await pruneFrames(deviceId);
   return ref;
 }
 
-export type RestoreResult = "calibration-removed" | "previous-live-restored" | "nothing-to-restore";
-
-/**
- * Undoes the last thing that changed the live image:
- * - calibration showing → back to what it covered;
- * - otherwise → swap with the layout and image the last promote replaced
- *   (calling it again swaps back).
- */
-export async function restorePrevious(device: DeviceDoc): Promise<RestoreResult> {
-  const deviceId = String(device._id);
-  const col = await devices();
-
-  if (device.published?.kind === "calibration") {
-    const covered = device.beforeCalibration ?? null;
-    await col.updateOne(
-      { _id: device._id },
-      covered
-        ? { $set: { published: covered }, $unset: { beforeCalibration: "" } }
-        : { $unset: { published: "", beforeCalibration: "" } }
-    );
-    return "calibration-removed";
-  }
-
-  const backups = await liveBackups();
-  const backup = await backups.findOne({ deviceId });
-  if (!backup) return "nothing-to-restore";
-  const now = new Date();
-  await backups.updateOne(
-    { deviceId },
-    { $set: { layout: device.layout, published: device.published ?? null, replacedAt: now } }
-  );
-  await col.updateOne(
+/** Takes the calibration chart off the sign and puts back what it covered. */
+export async function removeCalibration(device: DeviceDoc): Promise<boolean> {
+  if (device.published?.kind !== "calibration") return false;
+  const covered = device.beforeCalibration ?? null;
+  await (await devices()).updateOne(
     { _id: device._id },
-    backup.published
-      ? { $set: { layout: backup.layout, published: backup.published, updatedAt: now } }
-      : { $set: { layout: backup.layout, updatedAt: now }, $unset: { published: "" } }
+    covered
+      ? { $set: { published: covered }, $unset: { beforeCalibration: "" } }
+      : { $unset: { published: "", beforeCalibration: "" } }
   );
-  return "previous-live-restored";
+  await pruneFrames(String(device._id));
+  return true;
 }
 
 /** Records that the BMP was fetched. Never throws: a pull must not fail on bookkeeping. */

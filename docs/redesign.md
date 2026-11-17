@@ -43,6 +43,32 @@ and plugin settings; plugin data stays live. Copy a screen to another device or
 start a draft from any version. Optional "promote at" time. Existing live
 layouts become version 1.
 
+As built (branch `phase-2-versions`):
+
+- The layout autosaves a moment after each change. Device settings (name,
+  slug, size, rotation, format, background, text weight, model) keep their own
+  Save button, because some of them change what a sign shows or where it pulls
+  from.
+- Undo/redo covers the layout, per editing session. Dragging or typing in one
+  field undoes as one step.
+- Versions are numbered per device in one sequence: promotes and "save
+  version" checkpoints share it. Going back never rewrites the list. "Edit
+  from this" loads a version into the draft; "Make live" draws it again with
+  current plugin data and adds a new version. A draft that no version holds
+  yet is saved as a version before anything replaces it.
+- Cards and plugins are shared between screens, so going back does not change
+  the shared ones. Where one has changed since the version was saved, a copy
+  as it was then is made (named after the screen and version) and only that
+  draft uses it.
+- Media used by a saved version cannot be deleted.
+- "Promote at" draws and stores the image straight away. Nothing runs on a
+  timer: the stored image goes live the first time the sign pulls, or the
+  device is looked at, after the set time.
+- If the same screen is open in two windows, the second save is refused and
+  the editor asks which draft to keep.
+- The first time a device is opened, its live screen becomes version 1. A
+  screen still on the old renderer stays on it, and can be put back on it.
+
 ## Phase 3 — editor
 
 Canvas shows the true panel output with zoom. Click-to-edit text, multi-select,

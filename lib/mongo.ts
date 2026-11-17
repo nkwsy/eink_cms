@@ -50,6 +50,9 @@ export async function liveBackups(): Promise<Collection<LiveBackupDoc>> {
 export async function modelFiles(): Promise<Collection<ModelFileDoc>> {
   return (await getDb()).collection<ModelFileDoc>("model_files");
 }
+export async function versions(): Promise<Collection<VersionDoc>> {
+  return (await getDb()).collection<VersionDoc>("versions");
+}
 
 export { ObjectId };
 
@@ -198,8 +201,56 @@ export type DeviceDoc = {
   // Screen model name, e.g. "28in-mono". Selects the dv_signage.xml served
   // at /<slug>/dv_signage.xml.
   model?: string;
+  // Goes up by one every time the draft is written. The editor sends the
+  // number it started from, so two windows cannot silently overwrite each other.
+  draftRev?: number;
+  // Last version number handed out for this device.
+  versionSeq?: number;
+  // The version that is live now.
+  liveVersion?: { id: string; number: number };
+  // A version drawn and stored ahead of time that goes live at `at`.
+  scheduled?: { versionId: string; number: number; at: Date };
   updatedAt: Date;
   createdAt: Date;
+};
+
+// The parts of a device that change how a layout is drawn.
+export type VersionScreen = Pick<DeviceDoc, "width" | "height" | "rotation" | "background" | "inkCutoff">;
+
+// A card (asset) as it was when a version was saved.
+export type FrozenAsset = Pick<AssetDoc, "name" | "width" | "height" | "background" | "layout" | "variables">;
+
+// A plugin's settings as they were when a version was saved. Its data is not
+// kept: a version always shows current data.
+export type FrozenPlugin = Pick<PluginInstanceDoc, "typeId" | "name" | "width" | "height" | "settings" | "ttlSec">;
+
+// One saved state of a screen. Versions are numbered per device and never
+// change once written, apart from their name and the moment they went live.
+//   promoted  — is or was live;
+//   saved     — a checkpoint of the draft;
+//   scheduled — drawn and stored, waiting for its time to go live.
+export type VersionDoc = {
+  _id?: ObjectId;
+  deviceId: string;
+  number: number;
+  kind: "promoted" | "saved" | "scheduled";
+  label?: string;
+  createdAt: Date;
+  promotedAt?: Date;
+  // Set when this version was made by going back to an earlier one.
+  restoredFrom?: number;
+  screen: VersionScreen;
+  layout: Block[];
+  layoutHash: string;
+  assets: Record<string, FrozenAsset>;
+  plugins: Record<string, FrozenPlugin>;
+  // Media library items the layout and its cards use. They cannot be deleted
+  // while a version still needs them.
+  mediaIds: string[];
+  // The stored finished image, when one has been drawn.
+  frame?: PublishedRef | null;
+  // Live through the old renderer: drawn on every pull, no stored image.
+  legacy?: boolean;
 };
 
 // Pointer to a stored finished image (see lib/published.ts).
@@ -226,7 +277,8 @@ export type FrameDoc = {
 };
 
 // The live layout and image a promote replaced, kept so one promote can be
-// undone. One document per device. Phase 2 replaces this with full versions.
+// undone. One document per device. Only read now, to turn it into a version
+// the first time a device is opened after versions shipped.
 export type LiveBackupDoc = {
   _id?: ObjectId;
   deviceId: string;
@@ -251,9 +303,17 @@ export type AssetDoc = {
   background?: "white" | "black";
   layout: Block[];
   variables?: AssetVariable[];
+  // Set on a copy made when going back to a version whose card has since
+  // been changed. See lib/versions.ts.
+  copiedFrom?: CopiedFrom;
   updatedAt: Date;
   createdAt: Date;
 };
+
+// Where a frozen copy of a card or plugin came from. `hash` identifies the
+// frozen original; `selfHash` is the copy as created, so an edited copy is
+// not reused.
+export type CopiedFrom = { id: string; hash: string; selfHash: string };
 
 // A configured instance of a code-defined plugin type. The type itself lives
 // in lib/plugins/types/<id>.ts; settings are validated by that type's zod
@@ -276,6 +336,7 @@ export type PluginInstanceDoc = {
   latestMediaId?: string;
   // Surface fetch/render errors to the CMS without crashing the device pull.
   lastError?: { at: Date; message: string };
+  copiedFrom?: CopiedFrom;
   createdAt: Date;
   updatedAt: Date;
 };
